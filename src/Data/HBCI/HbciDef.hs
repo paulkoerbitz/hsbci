@@ -6,7 +6,7 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
 import           Data.Maybe (catMaybes)
-import           Control.Applicative ((<$>), (<|>))
+import           Control.Applicative ((<$>))
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
 import           Control.Monad (when)
@@ -43,13 +43,13 @@ findAttrByKey k attr = attrVal <$> L.find (\a -> qName (attrKey a) == k) attr
 elemToDEdef :: Element -> Maybe DEGItem
 elemToDEdef (Element nm attrs _ _) = do
     when (qName nm /= "DE") Nothing
-    nm <- T.pack <$> findAttrByKey "name" attrs
+    name <- T.pack <$> findAttrByKey "name" attrs
     tp <- read =<< findAttrByKey "type" attrs
     let minSz  = read =<< findAttrByKey "minsize" attrs
         maxSz  = read =<< findAttrByKey "maxsize" attrs
         minNum = maybe 1 read (findAttrByKey "minnum" attrs)
         maxNum = findAttrByKey "maxnum" attrs >>= \x -> if x == "0" then Nothing else Just (read x)
-    return $ DE nm tp minSz maxSz minNum maxNum Nothing
+    return $ DE name tp minSz maxSz minNum maxNum Nothing
 
 updateValids :: [Element] -> DEGItem -> DEGItem
 updateValids es item = if (isDE item) then updateValid (findValids es) item else item
@@ -69,7 +69,8 @@ updateValids es item = if (isDE item) then updateValid (findValids es) item else
       Just items -> de { deValids = Just items }
 
 elemToValue :: Element -> Maybe (T.Text, T.Text)
-elemToValue e@(Element nm attrs ctnt _) = do
+elemToValue e@(Element nm attrs _ _) = do
+  when (qName nm /= "value") Nothing
   path <- findAttrByKey "path" attrs
   return (T.pack path, T.pack $ strContent e)
 
@@ -109,13 +110,13 @@ elemToSEGdef degs (Element nm attrs ctnt _) = do
       de <- elemToDEdef e
       go valids es $ seg { segItems = de : segItems seg }
     go valids (e@(Element nm attrs ctnt _):es) seg | qName nm == "valids" = go (e:valids) es seg
-    go valids (e@(Element nm attrs ctnt _):es) seg | qName nm == "value"  = do
+    go valids (e@(Element nm _ _ _):es) seg | qName nm == "value"  = do
       value <- elemToValue e
       go valids es $ seg { segValues = value : segValues seg }
-    go valids (e:es)                           seg                        = Nothing
+    go _      (_:_)                         _                        = Nothing
 
 elemToSFItem :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe SFItem
-elemToSFItem segs sfs (Element nm attrs ctnt _) = do
+elemToSFItem segs sfs (Element nm attrs _ _) = do
   type_ <- T.pack <$> findAttrByKey "type" attrs
   let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
   if (qName nm == "SF")
