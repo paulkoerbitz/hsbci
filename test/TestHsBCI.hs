@@ -101,5 +101,5 @@ msgDefTests xml = []
 
 main :: IO ()
 main = do
-  xml <- getXml "src/hbci-plus.xml"
+  xml <- getXml "resources/hbci-plus.xml"
   defaultMain $ parserTests ++ degDefTests ++ segDefTests xml ++ sfDefTests xml ++ msgDefTests xml

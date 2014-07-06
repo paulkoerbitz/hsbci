@@ -44,7 +44,7 @@ elemToDEdef :: Element -> Maybe DEGItem
 elemToDEdef (Element nm attrs _ _) = do
     when (qName nm /= "DE") Nothing
     name <- T.pack <$> findAttrByKey "name" attrs
-    tp <- fst <$> (listToMaybe . reads . (\x -> trace ("x=" ++ x) x)  =<< findAttrByKey "type" attrs)
+    tp <- fst <$> (listToMaybe . reads =<< findAttrByKey "type" attrs)
     let minSz  = maybe 0  id $ (fst <$> (listToMaybe . reads =<< findAttrByKey "minsize" attrs ))
         maxSz  = fst <$> (listToMaybe . reads =<< findAttrByKey "maxsize" attrs)
         minNum = maybe 1 read (findAttrByKey "minnum" attrs)
