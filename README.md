@@ -1,6 +1,4 @@
-# HsBCI - a HBCI library for Haskell
-
-[![Build Status](https://travis-ci.org/paulkoerbitz/hsbci.png)](https://travis-ci.org/paulkoerbitz/hsbci)
+# HsBCI - a HBCI library for Haskell [![Build Status](https://travis-ci.org/paulkoerbitz/hsbci.png)](https://travis-ci.org/paulkoerbitz/hsbci) [![Coverage Status](https://img.shields.io/coveralls/paulkoerbitz/hsbci.svg)](https://coveralls.io/r/paulkoerbitz/hsbci)
 
 HsBCI aims to be a simple, modular and fast library which implements
 the German [*Home Banking Computer Interface* (HBCI) / *Financial
