@@ -5,7 +5,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
-import           Data.Maybe (catMaybes)
+import           Data.Maybe (catMaybes, listToMaybe)
 import           Control.Applicative ((<$>))
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
@@ -18,7 +18,7 @@ data DEType = AN | Bin | Code | Ctr | Cur | DTAUS | Date | Dig | ID | JN | Num |
 data DEGdef = DEGdef { degId :: T.Text, degNeedsRequestTag :: Bool, degItems :: [DEGItem], degValues :: [(T.Text,T.Text)] }
             deriving (Eq, Show)
 
-data DEGItem = DE  { deName :: T.Text, deType :: DEType, deMinSize :: Maybe Int, deMaxSize :: Maybe Int,
+data DEGItem = DE  { deName :: T.Text, deType :: DEType, deMinSize :: Int, deMaxSize :: Maybe Int,
                      deMinNum :: Int, deMaxNum :: Maybe Int, deValids :: Maybe [T.Text] }
              | DEG { degName :: T.Text, degMinNum :: Int, degMaxNum :: Maybe Int, degDef :: DEGdef }
              deriving (Eq, Show)
@@ -44,9 +44,9 @@ elemToDEdef :: Element -> Maybe DEGItem
 elemToDEdef (Element nm attrs _ _) = do
     when (qName nm /= "DE") Nothing
     name <- T.pack <$> findAttrByKey "name" attrs
-    tp <- read =<< findAttrByKey "type" attrs
-    let minSz  = read =<< findAttrByKey "minsize" attrs
-        maxSz  = read =<< findAttrByKey "maxsize" attrs
+    tp <- fst <$> (listToMaybe . reads . (\x -> trace ("x=" ++ x) x)  =<< findAttrByKey "type" attrs)
+    let minSz  = maybe 0  id $ (fst <$> (listToMaybe . reads =<< findAttrByKey "minsize" attrs ))
+        maxSz  = fst <$> (listToMaybe . reads =<< findAttrByKey "maxsize" attrs)
         minNum = maybe 1 read (findAttrByKey "minnum" attrs)
         maxNum = findAttrByKey "maxnum" attrs >>= \x -> if x == "0" then Nothing else Just (read x)
     return $ DE name tp minSz maxSz minNum maxNum Nothing
@@ -154,11 +154,22 @@ getXml fname = do
 getChildrenByName :: String -> [Content] -> [Element]
 getChildrenByName name ctnts = onlyElems ctnts >>= filterChildrenName (\x -> name == qName x) >>= elChildren
 
-getDEGs :: [Content] -> M.Map T.Text DEGdef
-getDEGs = M.fromList . foldr f [] . getChildrenByName "DEGs"
+getDEGdefs :: [Content] -> M.Map T.Text DEGdef
+getDEGdefs = M.fromList . foldr f [] . getChildrenByName "DEGs"
   where
-    f e acc = case elemToDEGdef e of Just deg -> (degId deg, deg) : acc
-                                     Nothing -> acc
+    f e acc = maybe acc (\x -> (degId x, x):acc) $  elemToDEGdef e
 
-getSEGs :: [Content] -> [Element]
-getSEGs = getChildrenByName "SEGs"
+getSEGdefs :: M.Map T.Text DEGdef -> [Content] -> M.Map T.Text SEGdef
+getSEGdefs degs = M.fromList . foldr f [] . getChildrenByName "SEGs"
+    where
+      f e acc = maybe acc (\x -> (segId x, x):acc) $ elemToSEGdef degs e
+
+getSFdefs :: M.Map T.Text SEGdef -> [Content] -> M.Map T.Text SFdef
+getSFdefs segs = foldr f M.empty . getChildrenByName "SFs"
+    where
+      f e sfs = maybe sfs (\x -> M.insert (sfdefId x) x sfs) $ elemToSFdef segs sfs e
+
+getMSGdefs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.Text MSGdef
+getMSGdefs segs sfs = M.fromList . foldr f [] . getChildrenByName "MSGs"
+    where
+      f e acc = maybe acc (\x -> (msgId x, x):acc) $ elemToMSGdef segs sfs e
