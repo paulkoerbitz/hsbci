@@ -8,7 +8,7 @@ maintainer:          paul.koerbitz@gmail.com
 copyright:           Paul Koerbitz
 category:            Web
 build-type:          Simple
-cabal-version:       >=1.20
+cabal-version:       >=1.16
 
 library
   exposed-modules:     Data.HBCI.Types,
