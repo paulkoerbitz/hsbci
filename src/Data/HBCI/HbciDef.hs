@@ -173,3 +173,11 @@ getMSGdefs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.
 getMSGdefs segs sfs = M.fromList . foldr f [] . getChildrenByName "MSGs"
     where
       f e acc = maybe acc (\x -> (msgId x, x):acc) $ elemToMSGdef segs sfs e
+
+getMSGs :: [Content] -> M.Map T.Text MSGdef
+getMSGs xml =
+    let xml' = resolveCrefs xml
+        degs = getDEGdefs xml'
+        segs = getSEGdefs degs xml'
+        sfs  = getSFdefs segs xml'
+    in getMSGdefs segs sfs xml'
