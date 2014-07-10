@@ -176,8 +176,7 @@ getMSGdefs segs sfs = M.fromList . foldr f [] . getChildrenByName "MSGs"
 
 getMSGs :: [Content] -> M.Map T.Text MSGdef
 getMSGs xml =
-    let xml' = resolveCrefs xml
-        degs = getDEGdefs xml'
-        segs = getSEGdefs degs xml'
-        sfs  = getSFdefs segs xml'
-    in getMSGdefs segs sfs xml'
+    let degs = getDEGdefs xml
+        segs = getSEGdefs degs xml
+        sfs  = getSFdefs segs xml
+    in getMSGdefs segs sfs xml
