@@ -29,7 +29,7 @@ parseInt bs i = go 0 i
                       then go (10*l + fromIntegral (x - 0x30)) (k+1)
                       else (l, k)
 
-parseBinary :: BS.ByteString -> Int -> Either T.Text (DE, Int)
+parseBinary :: BS.ByteString -> Int -> Either T.Text (DEValue, Int)
 parseBinary bs i = do
   when (i >= BS.length bs) $ error "parseBinary: empty string"
   let (n, i') = parseInt bs i
@@ -39,9 +39,9 @@ parseBinary bs i = do
   when (BS.length bs <= i'+1+n) $ error "parseBinary: string after '@' too short"
   return (DEBinary (BS.take n (BS.drop (i'+1) bs)), i'+1+n)
 
-data PST = MkPST { sf :: SF, seg :: SEG, deg :: DEG }
+data PST = MkPST { msg :: MSGValue, seg :: SEGValue, deg :: DEGValue }
 
-parser :: BS.ByteString -> Either T.Text SF
+parser :: BS.ByteString -> Either T.Text MSGValue
 parser bs = if BS.null bs then return [] else evalStateT (go [] 0) (MkPST [] [] [])
   where
     n = BS.length bs
@@ -52,7 +52,7 @@ parser bs = if BS.null bs then return [] else evalStateT (go [] 0) (MkPST [] [] 
     qmark = 0x3F
     at    = 0x40
 
-    go :: [Word8] -> Int -> StateT PST (Either T.Text) SF
+    go :: [Word8] -> Int -> StateT PST (Either T.Text) MSGValue
     go stk i | bs .@ i == qmark = do ensureLength (i+2)
                                      go ((bs .@ i+1):stk) (i+2)
     go []  i | bs .@ i == at    = do (de, i') <- lift $ parseBinary bs (i+1)
@@ -66,9 +66,9 @@ parser bs = if BS.null bs then return [] else evalStateT (go [] 0) (MkPST [] [] 
                                      modify (\x -> x { deg = [], seg = reverse (addDE stk (deg x)) : seg x })
                                      go [] (i+1)
     go stk i | bs .@ i == quote = do x <- get
-                                     let sf' = reverse (reverse (addDE stk (deg x)) : seg x) : sf x
-                                     if i+1 == n then return $ reverse sf'
-                                       else do put $ MkPST { deg = [], seg = [], sf = sf' }
+                                     let msg' = reverse (reverse (addDE stk (deg x)) : seg x) : msg x
+                                     if i+1 == n then return $ reverse msg'
+                                       else do put $ MkPST { deg = [], seg = [], msg = msg' }
                                                go [] (i+1)
     go stk i                    = ensureLength (i+1) >> go ((bs .@ i) : stk) (i+1)
 

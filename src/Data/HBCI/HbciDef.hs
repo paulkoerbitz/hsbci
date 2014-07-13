@@ -6,36 +6,12 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
 import           Data.Maybe (catMaybes, listToMaybe)
-import           Control.Applicative ((<$>))
+import           Control.Applicative ((<$>), (<|>))
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
 import           Control.Monad (when)
 
--- FIXME: Make things strict where appropriate
-data DEType = AN | Bin | Code | Ctr | Cur | DTAUS | Date | Dig | ID | JN | Num | Time | Wrt
-           deriving (Eq, Show, Read)
-
-data DEGdef = DEGdef { degId :: T.Text, degNeedsRequestTag :: Bool, degItems :: [DEGItem], degValues :: [(T.Text,T.Text)] }
-            deriving (Eq, Show)
-
-data DEGItem = DE  { deName :: T.Text, deType :: DEType, deMinSize :: Int, deMaxSize :: Maybe Int,
-                     deMinNum :: Int, deMaxNum :: Maybe Int, deValids :: Maybe [T.Text] }
-             | DEG { degName :: T.Text, degMinNum :: Int, degMaxNum :: Maybe Int, degDef :: DEGdef }
-             deriving (Eq, Show)
-
-data SEGdef = SEGdef { segId :: T.Text, needsRequestTag :: Bool, segItems :: [DEGItem], segValues :: [(T.Text,T.Text)] }
-            deriving (Eq, Show)
-
-data SFItem = SEG { sfiName :: T.Text, sfiMinNum :: Int, sfiMaxNum :: Maybe Int, sfiSegDef :: SEGdef }
-            | SF  { sfiName :: T.Text, sfiMinNum :: Int, sfiMaxNum :: Maybe Int, sfiSfDef :: SFdef }
-            deriving (Eq, Show)
-
-data SFdef = SFdef { sfdefId :: T.Text, sfdefNeedsRequestTag :: Bool, sfItems :: [SFItem] }
-           deriving (Eq, Show)
-
-data MSGdef = MSGdef { msgId :: T.Text, msgRequiresSignature :: Bool, msgRequiresEncryption :: Bool, msgItems :: [SFItem],
-                       msgValues :: [(T.Text, T.Text)] }
-            deriving (Eq, Show)
+import           Data.HBCI.Types
 
 findAttrByKey :: String -> [Attr] -> Maybe String
 findAttrByKey k attr = attrVal <$> L.find (\a -> qName (attrKey a) == k) attr
@@ -51,22 +27,34 @@ elemToDEdef (Element nm attrs _ _) = do
         maxNum = findAttrByKey "maxnum" attrs >>= \x -> if x == "0" then Nothing else Just (read x)
     return $ DE name tp minSz maxSz minNum maxNum Nothing
 
-updateValids :: [Element] -> DEGItem -> DEGItem
-updateValids es item = if (isDE item) then updateValid (findValids es) item else item
-  where
-    isDE (DE _ _ _ _ _ _ _) = True  -- FIXME: This could probably be done more nicely
-    isDE _                  = False -- with a prism
+setDEGItem :: (DEGItem -> DEGItem) -> [T.Text] -> DEGItem -> DEGItem
+setDEGItem f [nm]      de@(DE deNm _ _ _ _ _ _)              = if nm == deNm then f de else de
+setDEGItem f (nm:nms) deg@(DEG degNm _ _ (DEGdef tag items)) =
+  if nm /= degNm then deg
+  else deg { degDef = DEGdef tag (map (setDEGItem f nms) items) }
+setDEGItem _ _ v                                             = v
 
-    getValid (Element nm attrs ctnt _) = do
-          when (qName nm /= "valids") Nothing
-          path <- findAttrByKey "path" attrs
-          return (T.pack path, T.pack . strContent <$> onlyElems ctnt)
+setDEGValids :: T.Text -> [T.Text] -> DEGItem -> DEGItem
+setDEGValids nm valids = setDEGItem (\de -> de { deValids = Just valids }) (T.split (== '.') nm)
 
-    findValids = catMaybes . map getValid
+setDEGValue :: T.Text -> T.Text -> DEGItem -> DEGItem
+setDEGValue nm val = setDEGItem (\_ -> DEVal (DEStr val)) (T.split (== '.') nm)
 
-    updateValid vals de = case lookup (deName de) vals of
-      Nothing -> de
-      Just items -> de { deValids = Just items }
+setSFItem :: (DEGItem -> DEGItem) -> [T.Text] -> SFItem -> SFItem
+setSFItem f (nm:nms) seg@(SEG segNm _ _ (SEGdef tag items)) =
+  if nm == segNm then seg { sfiSegDef = SEGdef tag (map (setDEGItem f nms) items) } else seg
+setSFItem f (nm:nms)  sf@(SF sfNm _ _ (SFdef tag items)) =
+  if nm == sfNm then sf { sfiSfDef = SFdef tag (map (setSFItem f nms) items) } else sf
+setSFItem _ _       x = x
+
+setSFValue :: T.Text -> T.Text -> SFItem -> SFItem
+setSFValue nm val = setSFItem (\_ -> DEVal (DEStr val)) (T.split (== '.') nm)
+
+elemToValids :: Element -> Maybe (T.Text, [T.Text])
+elemToValids (Element nm attrs ctnt _) = do
+  when (qName nm /= "valids") Nothing
+  path <- findAttrByKey "path" attrs
+  return (T.pack path, T.pack . strContent <$> onlyElems ctnt)
 
 elemToValue :: Element -> Maybe (T.Text, T.Text)
 elemToValue e@(Element nm attrs _ _) = do
@@ -74,14 +62,17 @@ elemToValue e@(Element nm attrs _ _) = do
   path <- findAttrByKey "path" attrs
   return (T.pack path, T.pack $ strContent e)
 
-elemToDEGdef :: Element -> Maybe DEGdef
+elemToDEGdef :: Element -> Maybe (T.Text, DEGdef)
 elemToDEGdef (Element nm attrs ctnt _) = do
     when (qName nm /= "DEGdef") Nothing
     degid <- T.pack <$> findAttrByKey "id" attrs
-    let elems  = onlyElems ctnt
-        degdes = catMaybes $ map elemToDEdef elems
-        values = catMaybes $ map elemToValue elems
-    return $ DEGdef degid (findRequestTag attrs) (map (updateValids elems) degdes) values
+    items <- L.foldl' f (Just []) (onlyElems ctnt)
+    return (degid, DEGdef (findRequestTag attrs) (reverse items))
+  where
+    f (Just items) e = ((:items) <$> elemToDEdef e) <|>
+                       ((\(x,y) -> map (setDEGValids x y) items) <$> elemToValids e) <|>
+                       ((\(x,y) -> map (setDEGValue x y) items) <$> elemToValue e)
+    f _ _            = Nothing
 
 getCommonAttrsWDefault :: [Attr] -> (T.Text, Int, Maybe Int)
 getCommonAttrsWDefault attrs = (name, minnum, maxnum)
@@ -93,27 +84,26 @@ getCommonAttrsWDefault attrs = (name, minnum, maxnum)
 findRequestTag :: [Attr] -> Bool
 findRequestTag = maybe False (== "1") . findAttrByKey "needsRequestTag"
 
-elemToSEGdef :: M.Map T.Text DEGdef -> Element -> Maybe SEGdef
+lookupDeg :: M.Map T.Text DEGdef -> Element -> [DEGItem] -> Maybe [DEGItem]
+lookupDeg degs (Element nm attrs _ _) items = do
+  when (qName nm /= "DEG") Nothing
+  type_ <- T.pack <$> findAttrByKey "type" attrs
+  let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
+  degdef <- M.lookup type_ degs
+  return $ DEG name minnum maxnum degdef : items
+
+elemToSEGdef :: M.Map T.Text DEGdef -> Element -> Maybe (T.Text, SEGdef)
 elemToSEGdef degs (Element nm attrs ctnt _) = do
   when (qName nm /= "SEGdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
-  go [] (onlyElems ctnt) $ SEGdef id_ (findRequestTag attrs) [] []
+  items <- L.foldl' f (Just []) (onlyElems ctnt)
+  return (id_, SEGdef (findRequestTag attrs) (reverse items))
   where
-    go valids []                               seg                        =
-      Just $ seg { segItems = reverse $ map (updateValids valids) $ segItems seg }
-    go valids ((Element nm attrs ctnt _):es)   seg | qName nm == "DEG"    = do
-      type_ <- T.pack <$> findAttrByKey "type" attrs
-      let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
-      degdef <- M.lookup type_ degs
-      go valids es $ seg { segItems = DEG name minnum maxnum degdef : segItems seg }
-    go valids (e@(Element nm attrs ctnt _):es) seg | qName nm == "DE"     = do
-      de <- elemToDEdef e
-      go valids es $ seg { segItems = de : segItems seg }
-    go valids (e@(Element nm attrs ctnt _):es) seg | qName nm == "valids" = go (e:valids) es seg
-    go valids (e@(Element nm _ _ _):es) seg | qName nm == "value"  = do
-      value <- elemToValue e
-      go valids es $ seg { segValues = value : segValues seg }
-    go _      (_:_)                         _                        = Nothing
+    f (Just items) e = lookupDeg degs e items <|>
+                       ((:items) <$> elemToDEdef e) <|>
+                       ((\(x,y) -> map (setDEGValids x y) items) <$> elemToValids e) <|>
+                       ((\(x,y) -> map (setDEGValue x y) items) <$> elemToValue e)
+    f _ _            = Nothing
 
 elemToSFItem :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe SFItem
 elemToSFItem segs sfs (Element nm attrs _ _) = do
@@ -125,24 +115,25 @@ elemToSFItem segs sfs (Element nm attrs _ _) = do
        then M.lookup type_ segs >>= \seg -> return $ SEG name minnum maxnum seg
        else Nothing
 
-elemToSFdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe SFdef
+elemToSFdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe (T.Text, SFdef)
 elemToSFdef segs sfs (Element nm attrs ctnt _) = do
   when (qName nm /= "SFdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
   items <- sequence . map (elemToSFItem segs sfs) $ onlyElems ctnt
-  return $ SFdef id_ (findRequestTag attrs) items
+  return $ (id_, SFdef (findRequestTag attrs) items)
 
-elemToMSGdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe MSGdef
+elemToMSGdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe (T.Text, MSGdef)
 elemToMSGdef segs sfs (Element nm attrs ctnt _) = do
   when (qName nm /= "MSGdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
   let reqSig   = maybe True (/="1") $ findAttrByKey "dontsign" attrs
       reqCrypt = maybe True (/="1") $ findAttrByKey "dontcrypt" attrs
-      elems    = onlyElems ctnt
-      values   = catMaybes $ map elemToValue elems
-  items <- sequence . map (elemToSFItem segs sfs) $ elems
-  return $ MSGdef id_ reqSig reqCrypt items values
-
+  items <- L.foldl' f (Just []) (onlyElems ctnt)
+  return $ (id_, MSGdef reqSig reqCrypt items)
+  where
+    f (Just items) e = ((:items) <$> elemToSFItem segs sfs e) <|>
+                       ((\(x,y) -> map (setSFValue x y) items) <$> elemToValue e)
+    f _ _            = Nothing
 
 getXml :: String -> IO [Content]
 getXml fname = do
@@ -155,24 +146,18 @@ getChildrenByName :: String -> [Content] -> [Element]
 getChildrenByName name ctnts = onlyElems ctnts >>= filterChildrenName (\x -> name == qName x) >>= elChildren
 
 getDEGdefs :: [Content] -> M.Map T.Text DEGdef
-getDEGdefs = M.fromList . foldr f [] . getChildrenByName "DEGs"
-  where
-    f e acc = maybe acc (\x -> (degId x, x):acc) $  elemToDEGdef e
+getDEGdefs = M.fromList . catMaybes . map elemToDEGdef . getChildrenByName "DEGs"
 
 getSEGdefs :: M.Map T.Text DEGdef -> [Content] -> M.Map T.Text SEGdef
-getSEGdefs degs = M.fromList . foldr f [] . getChildrenByName "SEGs"
-    where
-      f e acc = maybe acc (\x -> (segId x, x):acc) $ elemToSEGdef degs e
+getSEGdefs degs = M.fromList . catMaybes . map (elemToSEGdef degs) . getChildrenByName "SEGs"
 
 getSFdefs :: M.Map T.Text SEGdef -> [Content] -> M.Map T.Text SFdef
-getSFdefs segs = foldr f M.empty . getChildrenByName "SFs"
-    where
-      f e sfs = maybe sfs (\x -> M.insert (sfdefId x) x sfs) $ elemToSFdef segs sfs e
+getSFdefs segs = L.foldl' f M.empty . getChildrenByName "SFs"
+  where
+    f sfs e = maybe sfs (\(id_, sf) -> M.insert id_ sf sfs) $ elemToSFdef segs sfs e
 
 getMSGdefs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.Text MSGdef
-getMSGdefs segs sfs = M.fromList . foldr f [] . getChildrenByName "MSGs"
-    where
-      f e acc = maybe acc (\x -> (msgId x, x):acc) $ elemToMSGdef segs sfs e
+getMSGdefs segs sfs = M.fromList . catMaybes . map (elemToMSGdef segs sfs) . getChildrenByName "MSGs"
 
 getMSGs :: [Content] -> M.Map T.Text MSGdef
 getMSGs xml =

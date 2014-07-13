@@ -14,7 +14,8 @@ library
   exposed-modules:     Data.HBCI.Types,
                        Data.HBCI.Gen,
                        Data.HBCI.Parser,
-                       Data.HBCI.HbciDef
+                       Data.HBCI.HbciDef,
+                       Data.HBCI.Messages
   hs-source-dirs:      src
   ghc-options:         -Wall -fno-warn-name-shadowing -O -funbox-strict-fields
   build-depends:       containers >= 0.5,
@@ -38,8 +39,9 @@ Test-Suite test-hsbci
                        bytestring >= 0.10,
                        vector >= 0.10,
                        xml >= 1.3,
-                       containers >= 0.5
-  hs-source-dirs:      src, test
+                       containers >= 0.5,
+                       hsbci
+  hs-source-dirs:      test
   ghc-options:         -Wall -fno-warn-name-shadowing
   x-uses-tf:           true
   default-language:    Haskell2010
