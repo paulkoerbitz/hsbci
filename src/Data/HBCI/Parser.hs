@@ -31,12 +31,12 @@ parseInt bs i = go 0 i
 
 parseBinary :: BS.ByteString -> Int -> Either T.Text (DEValue, Int)
 parseBinary bs i = do
-  when (i >= BS.length bs) $ error "parseBinary: empty string"
+  when (i >= BS.length bs) $ Left "parseBinary: empty string"
   let (n, i') = parseInt bs i
-  when (n == 0) $ error "parseBinary: binary length must not be 0"
-  when (i' >= BS.length bs) $ error "parseBinary: illegal binary form"
-  when (bs .@ i' /= 0x40) $ error "parseBinary: second '@' symbol missing"
-  when (BS.length bs <= i'+1+n) $ error "parseBinary: string after '@' too short"
+  when (n == 0) $ Left "parseBinary: binary length must not be 0"
+  when (i' >= BS.length bs) $ Left "parseBinary: illegal binary form"
+  when (bs .@ i' /= 0x40) $ Left "parseBinary: second '@' symbol missing"
+  when (BS.length bs <= i'+1+n) $ Left "parseBinary: string after '@' too short"
   return (DEBinary (BS.take n (BS.drop (i'+1) bs)), i'+1+n)
 
 data PST = MkPST { msg :: MSGValue, seg :: SEGValue, deg :: DEGValue }
