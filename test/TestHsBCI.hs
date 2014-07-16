@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import           Data.Monoid ((<>))
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -10,10 +11,10 @@ import           Test.HUnit (assertBool)
 import           Test.Framework as TF (defaultMain, testGroup, Test)
 import           Test.Framework.Providers.HUnit
 
-import Data.HBCI.Types
-import Data.HBCI.Parser
-import Data.HBCI.HbciDef
-import Data.HBCI.Messages
+import           Data.HBCI.Types
+import           Data.HBCI.Parser
+import           Data.HBCI.HbciDef
+import           Data.HBCI.Messages
 
 assertEq :: (Eq a, Show a) => a -> a -> IO ()
 assertEq expected actual = assertBool msg (expected == actual)
@@ -191,6 +192,27 @@ elemToSEGTests =
       assertEq (Just ("01", SEG "" False [DEGItem (DEG "DegName" 0 (Just 2) [DEdef "de01" AN 0 Nothing 1 Nothing (Just ["a","b","c"])])]))
       (testF2 (M.fromList [("deg01", DEG "DegName" 0 Nothing [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])])
        "<SEGdef id=\"01\"><DEG type=\"deg01\" name=\"DegName\" minnum=\"0\" maxnum=\"2\"/><valids path=\"DegName.de01\"><validvalue>a</validvalue><validvalue>b</validvalue><validvalue>c</validvalue></valids></SEGdef>")
+    , testCase "SEGdef with DEs and DEGs and values and valids" $
+      assertEq
+      (Just ("Seg01",
+             SEG "" False
+             [ DEItem (DEdef "de01" AN 0 Nothing 1 Nothing (Just ["de01-1","de01-2"]))
+             , DEGItem (DEG "DegName02" 0 (Just 2) [DEdef "de02" AN 0 Nothing 1 Nothing (Just ["a","b","c"])])
+             , DEItem (DEval (DEStr "de03val"))
+             , DEGItem (DEG "DegName04" 0 (Just 5) [DEval (DEStr "de04-val")])
+             ]))
+      (testF2 (M.fromList [("deg02", DEG "" 0 Nothing [DEdef "de02" AN 0 Nothing 1 Nothing Nothing])
+                          ,("deg04", DEG "" 0 Nothing [DEdef "de04" AN 0 Nothing 1 Nothing Nothing])])
+       ("<SEGdef id=\"Seg01\">" <>
+        "<DE name=\"de01\" type=\"AN\"/>" <>
+        "<DEG type=\"deg02\" name=\"DegName02\" minnum=\"0\" maxnum=\"2\"/>" <>
+        "<DE name=\"de03\" type=\"AN\"/>" <>
+        "<DEG type=\"deg04\" name=\"DegName04\" minnum=\"0\" maxnum=\"5\"/>" <>
+        "<valids path=\"de01\"><validvalue>de01-1</validvalue><validvalue>de01-2</validvalue></valids>" <>
+        "<valids path=\"DegName02.de02\"><validvalue>a</validvalue><validvalue>b</validvalue><validvalue>c</validvalue></valids>" <>
+        "<value path=\"de03\">de03val</value>" <>
+        "<value path=\"DegName04.de04\">de04-val</value>" <>
+        "</SEGdef>"))
     ]
   ]
   where
