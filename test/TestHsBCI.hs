@@ -221,18 +221,6 @@ elemToSEGTests =
 
     testF2 :: M.Map T.Text DEG -> BS.ByteString -> Maybe (T.Text, SEG)
     testF2 degs = elemToSEG degs . head . onlyElems . parseXML
-
-  --   [ testCase "SEGdef01"
-  --     assertEq Nothing
-  --     (testF)
-  --   ]
-  -- ]
-  -- [ testGroup "Known examples of SEGdefs"
-  --   [ testCase "BPA2" $
-  --     assertEq (Just (SEGdef {segId = "BPA2", needsRequestTag = False, segDEsDEGs = [DE {deDef = DEdef {deName = "version", deType = "Num", deAttrs = [("maxsize","3")], deValids = Nothing}},DE {deDef = DEdef {deName = "kiname", deType = "AN", deAttrs = [("maxsize","60")], deValids = Nothing}},DE {deDef = DEdef {deName = "numgva", deType = "Num", deAttrs = [("maxsize","3")], deValids = Nothing}},DE {deDef = DEdef {deName = "maxmsgsize", deType = "Num", deAttrs = [("minnum","0"),("maxsize","4")], deValids = Nothing}}], values = [("SegHead.version","2"),("SegHead.code","HIBPA")]}))
-  --              (elemToSEGdef (getDEGdefs xml) $ head $ getSEGs xml)
-  --   ]
-  -- ]
 --
 -- sfDefTests :: [Content] -> [TF.Test]
 -- sfDefTests xml = []
@@ -246,67 +234,57 @@ elemToSEGTests =
 -- msgDefTests :: [Content] -> [TF.Test]
 -- msgDefTests xml = []
 --
--- fillMsgTests :: [TF.Test]
--- fillMsgTests =
---   [ testGroup "Simple message examples"
---     [ testCase "Empty message" $
---       assertEq (Right [])
---                (fillMsg M.empty (MSGdef False False []))
---     , testCase "One item message -- success" $
---       assertEq (Right [[[DEStr "HNHBK"]]])
---                (fillMsg
---                 (M.fromList [("seg1.de1", "HNHBK")])
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False [DE "de1" AN 5 Nothing 1 (Just 1) Nothing])]))
---     , testCase "One item message -- failure" $
---       assertEq (Left "Key 'seg1.de1' missing in userVals")
---                (fillMsg
---                 M.empty
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False [DE "de1" AN 5 Nothing 1 (Just 1) Nothing])]))
---     , testCase "One item message -- value already set -- 1" $
---       assertEq (Right [[[DEStr "HNHBK"]]])
---                (fillMsg
---                 M.empty
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False [DEVal (DEStr "HNHBK")])]))
---     , testCase "One item message -- value already set -- 2" $
---       assertEq (Right [[[DEStr "HNHBK"]]])
---                (fillMsg
---                 (M.fromList [("seg1.de1", "SomethingOrOther")])
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False [DEVal (DEStr "HNHBK")])]))
---     , testCase "One item message -- value outside of valids" $
---       assertEq (Left "Value '3' for key 'seg1.de1' not in valid values '[\"1\",\"2\"]'")
---                (fillMsg
---                 (M.fromList [("seg1.de1", "3")])
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False [DE "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"])])]))
---     , testCase "Message with one DEG" $
---       assertEq (Right [[[DEStr "99", DEStr "77"]]])
---                (fillMsg
---                 (M.fromList [("seg1.deg1.de1", "99"), ("seg1.deg1.de2", "77" )])
---                 (MSGdef False False [SEG "seg1" 1 Nothing (SEGdef False
---                                                            [DEG "deg1" 0 Nothing (DEGdef [DE "de1" AN 5 Nothing 1 (Just 1) Nothing
---                                                                                                ,DE "de2" AN 9 Nothing 1 (Just 1) Nothing])])]))
---     , testCase "Message with one SF" $
---       assertEq (Right [[[DEStr "99", DEStr "77"]]])
---                (fillMsg
---                 (M.fromList [("seg1.deg1.de1", "99"), ("seg1.deg1.de2", "77" )])
---                 (MSGdef False False
---                  [SF "sf1" 0 Nothing
---                   (SFdef
---                    [SEG "seg1" 1 Nothing
---                     (SEGdef False
---                      [DEG "deg1" 0 Nothing
---                       (DEGdef
---                        [DE "de1" AN 5 Nothing 1 (Just 1) Nothing
---                        ,DE "de2" AN 9 Nothing 1 (Just 1) Nothing])])])]))
---     -- What else to test?
---     -- Validation of minsize, maxsize, minnum, maxnum
---     -- Validation of DETypes
---     -- Messages with SFs
---     -- Setting binary types
---     -- How does signing and encryption work? (I'll only do Pin-Tan for now)
---     -- First I need to validate the xml-message extraction functions and re-thing
---     -- the types there
---     ]
---   ]
+
+fillMsgTests :: [TF.Test]
+fillMsgTests =
+  [ testGroup "Simple message examples"
+    [ testCase "Empty message" $
+      assertEq (Right [])
+               (fillMsg M.empty (MSG False False []))
+    , testCase "One item message -- success" $
+      assertEq (Right [[[DEStr "HNHBK"]]])
+               (fillMsg
+                (M.fromList [("seg1.de1", "HNHBK")])
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+    , testCase "One item message -- failure" $
+      assertEq (Left "Required key 'seg1.de1' missing in userVals")
+               (fillMsg
+                M.empty
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+    , testCase "One item message -- value already set -- 1" $
+      assertEq (Right [[[DEStr "HNHBK"]]])
+               (fillMsg
+                M.empty
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEval (DEStr "HNHBK"))]]]))
+    , testCase "One item message -- value already set -- 2" $
+      assertEq (Right [[[DEStr "HNHBK"]]])
+               (fillMsg
+                (M.fromList [("seg1.de1", "SomethingOrOther")])
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEval (DEStr "HNHBK"))]]]))
+    , testCase "One item message -- value outside of valids" $
+      assertEq (Left "Value '3' for key 'seg1.de1' not in valid values '[\"1\",\"2\"]'")
+               (fillMsg
+                (M.fromList [("seg1.de1", "3")])
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
+    , testCase "Message with one DEG with two DEs" $
+      assertEq (Right [[[DEStr "99", DEStr "77"]]])
+               (fillMsg
+                (M.fromList [("seg1.deg1.de1", "99"), ("seg1.deg1.de2", "77" )])
+                (MSG False False
+                 [SF 0 Nothing
+                  [SEG "seg1" False
+                   [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing
+                                                  ,DEdef "de2" AN 9 Nothing 1 (Just 1) Nothing])]]]))
+    -- What else to test?
+    -- Validation of minsize, maxsize, minnum, maxnum
+    -- Validation of DETypes
+    -- Messages with SFs
+    -- Setting binary types
+    -- How does signing and encryption work? (I'll only do Pin-Tan for now)
+    -- First I need to validate the xml-message extraction functions and re-thing
+    -- the types there
+    ]
+  ]
 
 standaloneTests :: [TF.Test]
 standaloneTests = concat [ parserTests
@@ -316,6 +294,7 @@ standaloneTests = concat [ parserTests
                   , setDETests
                   , elemToDEGTests
                   , elemToSEGTests
+                  , fillMsgTests
                   ]
 
 xmlTests :: [[Content] -> TF.Test]

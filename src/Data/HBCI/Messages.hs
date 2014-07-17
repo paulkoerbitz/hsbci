@@ -10,24 +10,29 @@ import           Data.Traversable (traverse)
 
 import           Data.HBCI.Types
 
--- what do I need to do? Walk through the defs, remember which path I
--- am looking at and set the values found in the map. Set defaults where
--- values are not present and defaults are OK, return an error otherwise
-fillDeg :: M.Map T.Text T.Text -> T.Text -> DEGItem -> Either T.Text DEGValue
-fillDeg userVals = go
+fillSeg :: M.Map T.Text T.Text -> SEG -> Either T.Text SEGValue
+fillSeg userVals (SEG segNm _ items) = traverse (fillSegItem userVals segNm) items
+
+fillSegItem :: M.Map T.Text T.Text -> T.Text -> SEGItem -> Either T.Text DEGValue
+fillSegItem userVals = go
   where
-    go prefix (DEG degNm _ _ (DEGdef _ items)) = concat <$> traverse (go (prefix <> "." <> degNm)) items
-    go prefix (DE deNm _ _ _ _ _ valids) =
-      let key = prefix <> "." <> deNm
+    go prefix (DEItem de)                        = (:[]) <$> fillDe prefix de
+    go prefix (DEGItem (DEG degnm _ _ degitems)) =
+      let newPrefix = if T.null degnm then prefix else prefix <> "." <> degnm
+      in traverse (fillDe newPrefix) degitems
+
+    fillDe _      (DEval v)                     = Right v
+    fillDe prefix (DEdef deNm _ _ _ _ _ valids) =
+      let key = if T.null prefix then deNm else prefix <> "." <> deNm
           mval = M.lookup key userVals
       in case mval of
-        Nothing -> Left ("Key '" <> key <> "' missing in userVals")
+        Nothing -> Left $ "Required key '" <> key <> "' missing in userVals"
         (Just val) -> if not (isJust valids) || val `elem` (fromJust valids)
-                      then (Right [DEStr val])
+                      then Right (DEStr val)
                       else Left ("Value '" <> val <> "' for key '" <> key <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'")
-    go _ (DEVal de) = Right [de]
 
-fillMsg :: M.Map T.Text T.Text -> MSGdef -> Either T.Text MSGValue
-fillMsg userVals (MSGdef reqSig reqEnc items) = traverse fillSeg items
+fillMsg :: M.Map T.Text T.Text -> MSG -> Either T.Text MSGValue
+fillMsg userVals (MSG _reqSig _reqEnc items) = concat <$> traverse fillSf items
   where
-    fillSeg (SEG nm _ _ (SEGdef _ defs)) = traverse (fillDeg userVals nm) defs
+    fillSf :: SF -> Either T.Text MSGValue
+    fillSf (SF _ _ items) = traverse (fillSeg userVals) items
