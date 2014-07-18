@@ -244,6 +244,63 @@ elemToSFTests =
     testF2 :: M.Map T.Text SEG -> M.Map T.Text SF -> BS.ByteString -> Maybe (T.Text, [SF])
     testF2 segs sfs = elemToSF segs sfs . head . onlyElems . parseXML
 
+elemToMSGTests :: [TF.Test]
+elemToMSGTests =
+  [ testGroup "MSG Tests"
+    [ testCase "Not a MSGdef" $
+      assertEq Nothing
+      (testF M.empty M.empty "<SFdef id=\"msg01\"></SFdef>")
+    , testCase "Empty MSGdef" $
+      assertEq (Just ("msg01", MSG True True []))
+      (testF M.empty M.empty "<MSGdef id=\"msg01\"></MSGdef>")
+    , testCase "MSGdef dontCrypt" $
+      assertEq (Just ("msg01", MSG True False []))
+      (testF M.empty M.empty "<MSGdef id=\"msg01\" dontcrypt=\"1\"></MSGdef>")
+    , testCase "MSGdef dontSign" $
+      assertEq (Just ("msg01", MSG False True []))
+      (testF M.empty M.empty "<MSGdef id=\"msg01\" dontsign=\"1\"></MSGdef>")
+    , testCase "MSGdef with single SF which doesn't exit in the dicts" $
+      assertEq Nothing
+      (testF M.empty M.empty "<MSGdef id=\"msg01\"><SF type=\"sf01\"/></MSGdef>")
+    , testCase "MSGdef with single SF, minnum, maxnum unspecified" $
+      assertEq (Just ("msg01", MSG True True [SF 1 (Just 1) []]))
+      (testF M.empty (M.fromList [("sf01", SF 0 Nothing [])]) "<MSGdef id=\"msg01\"><SF type=\"sf01\"/></MSGdef>")
+    , testCase "MSGdef with single SEG which doesn't exit in the dicts" $
+      assertEq Nothing
+      (testF M.empty M.empty "<MSGdef id=\"msg01\"><SEG type=\"seg01\"/></MSGdef>")
+    , testCase "MSGdef with single SEG, minnum, maxnum unspecified" $
+      assertEq (Just ("msg01", MSG True True [SF 1 (Just 1) [SEG "" False []]]))
+      (testF (M.fromList [("seg01", SEG "" False [])]) M.empty "<MSGdef id=\"msg01\"><SEG type=\"seg01\"/></MSGdef>")
+    , testCase "MSGdef with single SEG, name, minnum, and maxnum" $
+      assertEq (Just ("msg01", MSG True True [SF 0 (Just 99) [SEG "SegName01" False []]]))
+      (testF (M.fromList [("seg01", SEG "" False [])]) M.empty "<MSGdef id=\"msg01\"><SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/></MSGdef>")
+    , testCase "MSGdef with SF containing two SEGs and a SEG" $
+      let segMap = M.fromList [("seg01", SEG "" False [])]
+          sfMap = M.fromList [("sf01", SF 0 (Just 20) [])]
+      in assertEq (Just ("msg01", MSG True True [SF 3 Nothing [], SF 0 (Just 99) [SEG "SegName01" False []]]))
+         (testF segMap sfMap
+          "<MSGdef id=\"msg01\"><SF type=\"sf01\" minnum=\"3\" maxnum=\"0\"/><SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/></MSGdef>")
+    , testCase "MSGdef with SF containing two SEGs and a SEG and values" $
+      let segMap = M.fromList [("seg02", SEG "" False [DEItem (DEdef "DeInSeg" AN 0 Nothing 0 Nothing Nothing)])]
+          sfMap = M.fromList [("sf01", SF 0 (Just 20) [SEG "SegInSf" False [DEGItem (DEG "DegInSf" 0 Nothing [DEdef "DeInSf" AN 0 Nothing 0 Nothing Nothing])]])]
+      in assertEq (Just ("msg01", MSG True True [SF 3 Nothing [SEG "SegInSf" False
+                                                               [DEGItem (DEG "DegInSf" 0 Nothing [DEval (DEStr "123")])]]
+                                                , SF 0 (Just 99) [SEG "SegOnTop" False [DEItem (DEval (DEStr "456"))]]
+                                                ]))
+         (testF segMap sfMap
+          ("<MSGdef id=\"msg01\">" <>
+           "<SF type=\"sf01\" minnum=\"3\" maxnum=\"0\"/>" <>
+           "<SEG name=\"SegOnTop\" minnum=\"0\" maxnum=\"99\" type=\"seg02\"/>" <>
+           "<value path=\"SegInSf.DegInSf.DeInSf\">123</value>" <>
+           "<value path=\"SegOnTop.DeInSeg\">456</value>" <>
+           "</MSGdef>"))
+    ]
+  ]
+  where
+    testF :: M.Map T.Text SEG -> M.Map T.Text SF -> BS.ByteString -> Maybe (T.Text, MSG)
+    testF segs sfs = elemToMSG segs sfs . head . onlyElems . parseXML
+
+
 fillMsgTests :: [TF.Test]
 fillMsgTests =
   [ testGroup "Simple message examples"
@@ -305,6 +362,7 @@ standaloneTests = concat [ parserTests
                          , elemToSEGTests
                          , fillMsgTests
                          , elemToSFTests
+                         , elemToMSGTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]

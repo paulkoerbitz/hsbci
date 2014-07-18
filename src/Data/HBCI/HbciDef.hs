@@ -77,6 +77,18 @@ setSEGValids = setValids setSEGItem
 setSEGValue :: T.Text -> T.Text -> SEGItem -> SEGItem
 setSEGValue = setValue setSEGItem
 
+setSF :: (DE -> DE) -> [T.Text] -> SF -> SF
+setSF f nms sf@(SF _ _ items) = sf { sfItems = map go items }
+  where
+    go seg@(SEG segNm tag items') =
+      let segNms           = if T.null segNm then [] else T.split (== '.') segNm
+          n                = length segNms
+          (nmsPre,nmsSuff) = splitAt n nms
+      in if segNms == nmsPre then SEG segNm tag (map (setSEGItem f nmsSuff) items') else seg
+
+setSFValue :: T.Text -> T.Text -> SF -> SF
+setSFValue = setValue setSF
+
 elemToDE :: Element -> Maybe DE
 elemToDE (Element nm attrs _ _) = do
     when (qName nm /= "DE") Nothing
@@ -166,21 +178,18 @@ elemToSF segs sfs (Element nm attrs ctnt _) =  do
   items <- traverse (elemToSFItem segs sfs) $ onlyElems ctnt
   return $ (id_, items)
 
-
-{-
-elemToMSGdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe (T.Text, MSGdef)
-elemToMSGdef segs sfs (Element nm attrs ctnt _) = do
+elemToMSG :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe (T.Text, MSG)
+elemToMSG segs sfs (Element nm attrs ctnt _) = do
   when (qName nm /= "MSGdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
   let reqSig   = maybe True (/="1") $ findAttrByKey "dontsign" attrs
       reqCrypt = maybe True (/="1") $ findAttrByKey "dontcrypt" attrs
   items <- L.foldl' f (Just []) (onlyElems ctnt)
-  return $ (id_, MSGdef reqSig reqCrypt items)
+  return $ (id_, MSG reqSig reqCrypt (reverse items))
   where
     f (Just items) e = ((:items) <$> elemToSFItem segs sfs e) <|>
                        ((\(x,y) -> map (setSFValue x y) items) <$> elemToValue e)
     f _ _            = Nothing
--}
 
 getXml :: String -> IO [Content]
 getXml fname = do
