@@ -5,6 +5,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
+import           Data.Traversable (traverse)
 import           Data.Maybe (catMaybes, listToMaybe)
 import           Control.Applicative ((<$>), (<|>))
 import           System.IO (openFile, hClose, IOMode(..))
@@ -148,24 +149,25 @@ elemToSEG degs (Element nm attrs ctnt _) = do
                        ((\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e)
     f _ _            = Nothing
 
-{-
-elemToSFItem :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe SFItem
+elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe SF
 elemToSFItem segs sfs (Element nm attrs _ _) = do
   type_ <- T.pack <$> findAttrByKey "type" attrs
   let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
   if (qName nm == "SF")
-  then M.lookup type_ sfs >>= \sf -> return $ SF name minnum maxnum sf
+  then M.lookup type_ sfs >>= \(SF _ _ items) -> return $ SF minnum maxnum items
   else if (qName nm == "SEG")
-       then M.lookup type_ segs >>= \seg -> return $ SEG name minnum maxnum seg
+       then M.lookup type_ segs >>= \(SEG _ tag items) -> return $ SF minnum maxnum [SEG name tag items]
        else Nothing
 
-elemToSFdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe (T.Text, SFdef)
-elemToSFdef segs sfs (Element nm attrs ctnt _) = do
+elemToSF :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe (T.Text, [SF])
+elemToSF segs sfs (Element nm attrs ctnt _) =  do
   when (qName nm /= "SFdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
-  items <- sequence . map (elemToSFItem segs sfs) $ onlyElems ctnt
-  return $ (id_, SFdef items)
+  items <- traverse (elemToSFItem segs sfs) $ onlyElems ctnt
+  return $ (id_, items)
 
+
+{-
 elemToMSGdef :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> Element -> Maybe (T.Text, MSGdef)
 elemToMSGdef segs sfs (Element nm attrs ctnt _) = do
   when (qName nm /= "MSGdef") Nothing

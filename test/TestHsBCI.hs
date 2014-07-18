@@ -221,19 +221,28 @@ elemToSEGTests =
 
     testF2 :: M.Map T.Text DEG -> BS.ByteString -> Maybe (T.Text, SEG)
     testF2 degs = elemToSEG degs . head . onlyElems . parseXML
---
--- sfDefTests :: [Content] -> [TF.Test]
--- sfDefTests xml = []
---     -- [ testGroup "Known examples of SFdefs"
---     --   [ testCase "UPD" $
---     --     assertEq (Just (SFdef {}))
---     --              (elemToSFdef (get))
---     --   ]
---     -- ]
---
--- msgDefTests :: [Content] -> [TF.Test]
--- msgDefTests xml = []
---
+
+elemToSFTests :: [TF.Test]
+elemToSFTests =
+  [ testGroup "SF Tests"
+    [ testCase "Not a SF" $
+      assertEq Nothing
+      (testF "<SEGdef id=\"sf01\"></SEGdef>")
+    , testCase "Empty SF" $
+      assertEq (Just ("sf01", []))
+      (testF "<SFdef id=\"sf01\"></SFdef>")
+    , testCase "Single Seg in SF" $
+      assertEq (Just ("sf01", [SF 5 (Just 7) [SEG "segName01" False []]]))
+      (testF2 (M.fromList [("segId01", SEG "" False [])]) M.empty
+       "<SFdef id=\"sf01\"><SEG type=\"segId01\" name=\"segName01\" minnum=\"5\" maxnum=\"7\"/></SFdef>")
+    ]
+  ]
+  where
+    testF :: BS.ByteString -> Maybe (T.Text, [SF])
+    testF = elemToSF M.empty M.empty . head . onlyElems . parseXML
+
+    testF2 :: M.Map T.Text SEG -> M.Map T.Text SF -> BS.ByteString -> Maybe (T.Text, [SF])
+    testF2 segs sfs = elemToSF segs sfs . head . onlyElems . parseXML
 
 fillMsgTests :: [TF.Test]
 fillMsgTests =
@@ -288,14 +297,15 @@ fillMsgTests =
 
 standaloneTests :: [TF.Test]
 standaloneTests = concat [ parserTests
-                  , elemToDETests
-                  , elemToValidsTests
-                  , elemToValueTests
-                  , setDETests
-                  , elemToDEGTests
-                  , elemToSEGTests
-                  , fillMsgTests
-                  ]
+                         , elemToDETests
+                         , elemToValidsTests
+                         , elemToValueTests
+                         , setDETests
+                         , elemToDEGTests
+                         , elemToSEGTests
+                         , fillMsgTests
+                         , elemToSFTests
+                         ]
 
 xmlTests :: [[Content] -> TF.Test]
 xmlTests = []
