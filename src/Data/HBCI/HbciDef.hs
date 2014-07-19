@@ -241,14 +241,12 @@ getSFs segs = L.foldl' f M.empty . getChildrenByName "SFs"
   where
     f sfs e = maybe sfs (\(id_, sf) -> M.insert id_ sf sfs) $ elemToSF segs sfs e
 
-{-
-getMSGs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.Text MSGdef
-getMSGs segs sfs = M.fromList . catMaybes . map (elemToMSGdef segs sfs) . getChildrenByName "MSGs"
+getMSGs :: M.Map T.Text SEG -> M.Map T.Text [SF] -> [Content] -> M.Map T.Text MSG
+getMSGs segs sfs = M.fromList . catMaybes . map (elemToMSG segs sfs) . getChildrenByName "MSGs"
 
-getMSGfromXML :: [Content] -> M.Map T.Text MSGdef
+getMSGfromXML :: [Content] -> M.Map T.Text MSG
 getMSGfromXML xml =
-    let degs = getDEGdefs xml
-        segs = getSEGdefs degs xml
-        sfs  = getSFdefs segs xml
-    in getMSGdefs segs sfs xml
--}
+    let degs = getDEGs xml
+        segs = getSEGs degs xml
+        sfs  = getSFs segs xml
+    in getMSGs segs sfs xml
