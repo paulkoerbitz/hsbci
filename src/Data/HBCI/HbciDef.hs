@@ -7,7 +7,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import           Data.Traversable (traverse)
 import           Data.Maybe (catMaybes, listToMaybe)
-import           Control.Applicative ((<$>), (<|>))
+import           Control.Applicative ((<$>), (<|>), (<*>))
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
 import           Control.Monad (when)
@@ -161,24 +161,51 @@ elemToSEG degs (Element nm attrs ctnt _) = do
                        ((\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e)
     f _ _            = Nothing
 
-elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe SF
+-- The way SFs and SEGs are represented is not really consistent with
+-- the XML representation. In particular, SFs can be nested inside the
+-- XML and each SF can have a minnum and a maxnum specified. This way
+-- the XML representation can describe if a group of SEGs is
+-- required. For example imagine an SF, some SEGs are required, some
+-- are not. If this SF is included somewhere with a minnum of 0, then
+-- the logical interpretation is if one of the SEGs inside this SF is
+-- present then all the SEGs inside this SF with a minnum > 0 are
+-- required. This could be logically represented by having minnums and
+-- maxnums both on SFs and SEGs.
+--
+-- The representation of SFs and SEGs in the XML allows considerable
+-- more complex constructs. For example, one could represent an SF
+-- with arbitrary deep nesting. However, this is the not really needed
+-- by HBCI.
+--
+-- For now I have chosen a really simple representation which might be
+-- to simple in some cases. minums and maxnums are only available on
+-- SFs and not on SEGs. SEGs are represented as SFs with a single item
+-- and the minnums and maxnums are relaxed when an SF is referenced.
+-- This might be too simplistic in some cases, I'll fix that if it
+-- turns out to be the case.
+elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe [SF]
 elemToSFItem segs sfs (Element nm attrs _ _) = do
   type_ <- T.pack <$> findAttrByKey "type" attrs
   let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
   if (qName nm == "SF")
-  then M.lookup type_ sfs >>= \(SF _ _ items) -> return $ SF minnum maxnum items
+  then M.lookup type_ sfs >>= return . map (updateMinMax minnum maxnum)
   else if (qName nm == "SEG")
-       then M.lookup type_ segs >>= \(SEG _ tag items) -> return $ SF minnum maxnum [SEG name tag items]
+       then M.lookup type_ segs >>= \(SEG _ tag items) -> return $ [SF minnum maxnum [SEG name tag items]]
        else Nothing
+  where
+    updateMinMax outerMin outerMax (SF innerMin innerMax items) =
+      let newMin = min innerMin outerMin
+          newMax = max <$> innerMax <*> outerMax
+      in SF newMin newMax  items
 
-elemToSF :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe (T.Text, [SF])
+elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe (T.Text, [SF])
 elemToSF segs sfs (Element nm attrs ctnt _) =  do
   when (qName nm /= "SFdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
-  items <- traverse (elemToSFItem segs sfs) $ onlyElems ctnt
+  items <- concat <$> traverse (elemToSFItem segs sfs) (onlyElems ctnt)
   return $ (id_, items)
 
-elemToMSG :: M.Map T.Text SEG -> M.Map T.Text SF -> Element -> Maybe (T.Text, MSG)
+elemToMSG :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe (T.Text, MSG)
 elemToMSG segs sfs (Element nm attrs ctnt _) = do
   when (qName nm /= "MSGdef") Nothing
   id_ <- T.pack <$> findAttrByKey "id" attrs
@@ -187,7 +214,7 @@ elemToMSG segs sfs (Element nm attrs ctnt _) = do
   items <- L.foldl' f (Just []) (onlyElems ctnt)
   return $ (id_, MSG reqSig reqCrypt (reverse items))
   where
-    f (Just items) e = ((:items) <$> elemToSFItem segs sfs e) <|>
+    f (Just items) e = ((++ items) <$> elemToSFItem segs sfs e) <|>
                        ((\(x,y) -> map (setSFValue x y) items) <$> elemToValue e)
     f _ _            = Nothing
 
@@ -202,22 +229,24 @@ getChildrenByName :: String -> [Content] -> [Element]
 getChildrenByName name ctnts = onlyElems ctnts >>= filterChildrenName (\x -> name == qName x) >>= elChildren
 
 getDEGs :: [Content] -> M.Map T.Text DEG
-getDEGs = undefined -- M.fromList . catMaybes . map elemToDEG . getChildrenByName "DEGs"
+getDEGs = L.foldl' f M.empty . getChildrenByName "DEGs"
+  where
+    f degs e = maybe degs (\(id_, deg) -> M.insert id_ deg degs) $ elemToDEG degs e
 
 getSEGs :: M.Map T.Text DEG -> [Content] -> M.Map T.Text SEG
 getSEGs degs = M.fromList . catMaybes . map (elemToSEG degs) . getChildrenByName "SEGs"
 
-{-
-getSFdefs :: M.Map T.Text SEGdef -> [Content] -> M.Map T.Text SFdef
-getSFdefs segs = L.foldl' f M.empty . getChildrenByName "SFs"
+getSFs :: M.Map T.Text SEG -> [Content] -> M.Map T.Text [SF]
+getSFs segs = L.foldl' f M.empty . getChildrenByName "SFs"
   where
-    f sfs e = maybe sfs (\(id_, sf) -> M.insert id_ sf sfs) $ elemToSFdef segs sfs e
+    f sfs e = maybe sfs (\(id_, sf) -> M.insert id_ sf sfs) $ elemToSF segs sfs e
 
-getMSGdefs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.Text MSGdef
-getMSGdefs segs sfs = M.fromList . catMaybes . map (elemToMSGdef segs sfs) . getChildrenByName "MSGs"
+{-
+getMSGs :: M.Map T.Text SEGdef -> M.Map T.Text SFdef -> [Content] -> M.Map T.Text MSGdef
+getMSGs segs sfs = M.fromList . catMaybes . map (elemToMSGdef segs sfs) . getChildrenByName "MSGs"
 
-getMSGs :: [Content] -> M.Map T.Text MSGdef
-getMSGs xml =
+getMSGfromXML :: [Content] -> M.Map T.Text MSGdef
+getMSGfromXML xml =
     let degs = getDEGdefs xml
         segs = getSEGdefs degs xml
         sfs  = getSFdefs segs xml
