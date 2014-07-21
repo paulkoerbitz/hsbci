@@ -8465,6 +8465,7 @@
       <SEG maxnum="3" minnum="0" name="SigTail" type="SigTailUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef id="CustomMsgRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8495,6 +8496,7 @@
       <value path="KeyReq_2.KeyName.keyversion">999</value>
       <value path="MsgTail.msgnum">1</value>
     </MSGdef>
+
     <MSGdef dontcrypt="1" id="FirstKeyReqRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8510,7 +8512,7 @@
 
     <MSGdef dontcrypt="1" dontsign="1" id="DialogInitAnon">
       <SEG name="MsgHead" type="MsgHeadUser" />
-      <SEG type="Idn" />
+      <SEG name="Idn" type="Idn" />
       <SEG type="ProcPrep" />
       <SEG name="MsgTail" type="MsgTailUser" />
 
@@ -8521,6 +8523,7 @@
       <value path="Idn.sysStatus">0</value>
       <value path="MsgTail.msgnum">1</value>
     </MSGdef>
+
     <MSGdef dontcrypt="1" dontsign="1" id="DialogInitAnonRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8546,6 +8549,7 @@
       <value path="MsgHead.msgnum">1</value>
       <value path="MsgTail.msgnum">1</value>
     </MSGdef>
+
     <MSGdef id="DialogInitRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8580,6 +8584,7 @@
       <SEG maxnum="3" minnum="0" name="SigTail" type="SigTailUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef id="DialogEndRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8596,6 +8601,7 @@
       <SEG maxnum="3" minnum="0" name="SigTail" type="SigTailUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef id="ChangeKeysRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8612,6 +8618,7 @@
       <SEG maxnum="3" minnum="0" name="SigTail" type="SigTailUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef id="LockKeysRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8635,6 +8642,7 @@
       <value path="Idn.sysStatus">1</value>
       <value path="MsgTail.msgnum">1</value>
     </MSGdef>
+
     <MSGdef dontcrypt="1" id="SendKeysRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8654,6 +8662,7 @@
       <SEG maxnum="3" minnum="0" name="SigTail" type="SigTailUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef id="SynchRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG minnum="0" name="SigHead" type="SigHeadInst" />
@@ -8674,6 +8683,7 @@
       <SEG name="CryptData" type="CryptDataUser" />
       <SEG name="MsgTail" type="MsgTailUser" />
     </MSGdef>
+
     <MSGdef dontcrypt="1" dontsign="1" id="CryptedRes">
       <SEG name="MsgHead" type="MsgHeadInst" />
       <SEG name="CryptHead" type="CryptHeadInst" />
