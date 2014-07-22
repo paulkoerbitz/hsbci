@@ -309,7 +309,75 @@ getMSGfromXMLTest =
   [ \xml -> testGroup "getMSGfromXMLTest"
     [ testCase "DialogInitAnon" $
       assertEq
-      (Just (MSG {msgRequiresSignature = False, msgRequiresEncryption = False, msgItems = [SF {sfMinNum = 1, sfMaxNum = Just 1, sfItems = [SEG {segName = "MsgHead", needsRequestTag = False, segItems = [DEGItem (DEG {degName = "SegHead", degMinNum = 1, degMaxNum = Just 1, degItems = [DEval (DEStr "HNHBK"),DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing},DEval (DEStr "3"),DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]}),DEItem (DEdef {deName = "msgsize", deType = Dig, deMinSize = 12, deMaxSize = Just 12, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}),DEItem (DEval (DEStr "220")),DEItem (DEval (DEStr "0")),DEItem (DEval (DEStr "1")),DEGItem (DEG {degName = "", degMinNum = 0, degMaxNum = Just 1, degItems = [DEval (DEStr "0"),DEval (DEStr "1")]})]}]},SF {sfMinNum = 1, sfMaxNum = Just 1, sfItems = [SEG {segName = "Idn", needsRequestTag = False, segItems = [DEGItem (DEG {degName = "SegHead", degMinNum = 1, degMaxNum = Just 1, degItems = [DEval (DEStr "HKIDN"),DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing},DEval (DEStr "2"),DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]}),DEGItem (DEG {degName = "", degMinNum = 1, degMaxNum = Just 1, degItems = [DEdef {deName = "country", deType = Ctr, deMinSize = 0, deMaxSize = Nothing, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing},DEdef {deName = "blz", deType = AN, deMinSize = 0, deMaxSize = Just 30, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]}),DEItem (DEval (DEStr "9999999999")),DEItem (DEval (DEStr "0")),DEItem (DEval (DEStr "0"))]}]},SF {sfMinNum = 1, sfMaxNum = Just 1, sfItems = [SEG {segName = "", needsRequestTag = False, segItems = [DEGItem (DEG {degName = "SegHead", degMinNum = 1, degMaxNum = Just 1, degItems = [DEval (DEStr "HKVVB"),DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing},DEval (DEStr "2"),DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]}),DEItem (DEdef {deName = "BPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}),DEItem (DEdef {deName = "UPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}),DEItem (DEdef {deName = "lang", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Just ["0","1","2","3"]}),DEItem (DEdef {deName = "prodName", deType = AN, deMinSize = 0, deMaxSize = Just 25, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}),DEItem (DEdef {deName = "prodVersion", deType = AN, deMinSize = 0, deMaxSize = Just 5, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})]}]},SF {sfMinNum = 1, sfMaxNum = Just 1, sfItems = [SEG {segName = "MsgTail", needsRequestTag = False, segItems = [DEGItem (DEG {degName = "SegHead", degMinNum = 1, degMaxNum = Just 1, degItems = [DEval (DEStr "HNHBS"),DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing},DEval (DEStr "1"),DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]}),DEItem (DEval (DEStr "1"))]}]}]}))
+      (Just (MSG {msgRequiresSignature = False,
+                  msgRequiresEncryption = False,
+                  msgItems = [SF {sfMinNum = 1,
+                                  sfMaxNum = Just 1,
+                                  sfItems = [SEG {segName = "MsgHead",
+                                                  needsRequestTag = False,
+                                                  segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                            degMinNum = 1,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEval (DEStr "HNHBK")
+                                                                                       ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                       ,DEval (DEStr "3")
+                                                                                       ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                             ,DEItem (DEdef {deName = "msgsize", deType = Dig, deMinSize = 12, deMaxSize = Just 12, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                             ,DEItem (DEval (DEStr "220"))
+                                                             ,DEItem (DEval (DEStr "0"))
+                                                             ,DEItem (DEval (DEStr "1"))
+                                                             ,DEGItem (DEG {degName = "",
+                                                                            degMinNum = 0,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEval (DEStr "0")
+                                                                                       ,DEval (DEStr "1")]})]}]}
+                             ,SF {sfMinNum = 1,
+                                  sfMaxNum = Just 1,
+                                  sfItems = [SEG {segName = "Idn",
+                                                  needsRequestTag = False,
+                                                  segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                            degMinNum = 1,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEval (DEStr "HKIDN")
+                                                                                       ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                       ,DEval (DEStr "2")
+                                                                                       ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                             ,DEGItem (DEG {degName = "",
+                                                                            degMinNum = 1,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEdef {deName = "country", deType = Ctr, deMinSize = 0, deMaxSize = Nothing, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                       ,DEdef {deName = "blz", deType = AN, deMinSize = 0, deMaxSize = Just 30, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                             ,DEItem (DEval (DEStr "9999999999"))
+                                                             ,DEItem (DEval (DEStr "0"))
+                                                             ,DEItem (DEval (DEStr "0"))]}]}
+                             ,SF {sfMinNum = 1,
+                                  sfMaxNum = Just 1,
+                                  sfItems = [SEG {segName = "",
+                                                  needsRequestTag = False,
+                                                  segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                            degMinNum = 1,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEval (DEStr "HKVVB")
+                                                                                       ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                       ,DEval (DEStr "2")
+                                                                                       ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                             ,DEItem (DEdef {deName = "BPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                             ,DEItem (DEdef {deName = "UPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                             ,DEItem (DEdef {deName = "lang", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Just ["0","1","2","3"]})
+                                                             ,DEItem (DEdef {deName = "prodName", deType = AN, deMinSize = 0, deMaxSize = Just 25, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                             ,DEItem (DEdef {deName = "prodVersion", deType = AN, deMinSize = 0, deMaxSize = Just 5, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})]}]}
+                             ,SF {sfMinNum = 1,
+                                  sfMaxNum = Just 1,
+                                  sfItems = [SEG {segName = "MsgTail",
+                                                  needsRequestTag = False,
+                                                  segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                            degMinNum = 1,
+                                                                            degMaxNum = Just 1,
+                                                                            degItems = [DEval (DEStr "HNHBS")
+                                                                                       ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                       ,DEval (DEStr "1")
+                                                                                       ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                             ,DEItem (DEval (DEStr "1"))]}]}]}))
       (M.lookup "DialogInitAnon" $ getMSGfromXML xml)
     ]
   ]
