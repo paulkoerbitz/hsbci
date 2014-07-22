@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 module Data.HBCI.HbciDef where
 
 import qualified Data.ByteString as BS
@@ -6,8 +6,10 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
 import           Data.Traversable (traverse)
-import           Data.Maybe (catMaybes, listToMaybe)
-import           Control.Applicative ((<$>), (<|>), (<*>))
+import           Data.Maybe (listToMaybe)
+import           Data.Monoid ((<>))
+import           Control.Applicative ((<$>), (<*>))
+import           Control.Monad (foldM)
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
 import           Control.Monad (when)
@@ -89,49 +91,70 @@ setSF f nms sf@(SF _ _ items) = sf { sfItems = map go items }
 setSFValue :: T.Text -> T.Text -> SF -> SF
 setSFValue = setValue setSF
 
-elemToDE :: Element -> Maybe DE
-elemToDE (Element nm attrs _ _) = do
-    when (qName nm /= "DE") Nothing
-    name <- T.pack <$> findAttrByKey "name" attrs
-    tp <- fst <$> (listToMaybe . reads =<< findAttrByKey "type" attrs)
-    let minSz  = maybe 0  id $ (fst <$> (listToMaybe . reads =<< findAttrByKey "minsize" attrs ))
-        maxSz  = fst <$> (listToMaybe . reads =<< findAttrByKey "maxsize" attrs)
-        minNum = maybe 1 read (findAttrByKey "minnum" attrs)
-        maxNum = findAttrByKey "maxnum" attrs >>= \x -> if x == "0" then Nothing else Just (read x)
-    return $ DEdef name tp minSz maxSz minNum maxNum Nothing
+err :: Maybe Line -> T.Text -> Either T.Text a
+err (Just l) msg = Left $ T.pack (show l) <> ": " <> msg
+err Nothing  msg = Left msg
 
-elemToValids :: Element -> Maybe (T.Text, [T.Text])
-elemToValids (Element nm attrs ctnt _) = do
-  when (qName nm /= "valids") Nothing
-  path <- findAttrByKey "path" attrs
-  return (T.pack path, T.pack . strContent <$> onlyElems ctnt)
+merr :: Maybe Line -> T.Text -> Maybe a -> Either T.Text a
+merr _    _   (Just x) = Right x
+merr line msg Nothing  = err line msg
 
-elemToValue :: Element -> Maybe (T.Text, T.Text)
-elemToValue e@(Element nm attrs _ _) = do
-  when (qName nm /= "value") Nothing
-  path <- findAttrByKey "path" attrs
-  return (T.pack path, T.pack $ strContent e)
+checkName :: String -> QName -> Maybe Line -> Either T.Text ()
+checkName nm qnm line = do
+  when (qName qnm /= nm) $ err line ("Element is not a " <> T.pack nm <> ": " <> T.pack (qName qnm))
+  return ()
 
-getDEGType :: Element -> Maybe T.Text
-getDEGType (Element nm attrs _ _) = do
-  when (qName nm /= "DEG") Nothing
-  T.pack <$> findAttrByKey "type" attrs
+getRequiredAttr :: Maybe Line -> T.Text -> String -> [Attr] -> Either T.Text T.Text
+getRequiredAttr line elemName attrName attrs =
+  merr line ("Required attribute '" <> T.pack attrName <> "' missing in " <> elemName) $ T.pack <$> findAttrByKey attrName attrs
+
+getReferencedItem :: T.Text -> Maybe Line -> M.Map T.Text a -> T.Text -> Either T.Text a
+getReferencedItem name line map key =
+  maybe (err line (name <> ": Referenced element '" <> key <> "' not found")) Right (M.lookup key map)
+
+elemToDE :: Element -> Either T.Text DE
+elemToDE (Element nm attrs _ line) = do
+  checkName "DE" nm line
+  tp <- merr line "Required attribute 'type' missing in DE" $ fst <$> (listToMaybe . reads =<< findAttrByKey "type" attrs)
+  name <- getRequiredAttr line "DE" "name" attrs
+  let minSz  = maybe 0  id $ (fst <$> (listToMaybe . reads =<< findAttrByKey "minsize" attrs ))
+      maxSz  = fst <$> (listToMaybe . reads =<< findAttrByKey "maxsize" attrs)
+      minNum = maybe 1 read (findAttrByKey "minnum" attrs)
+      maxNum = findAttrByKey "maxnum" attrs >>= \x -> if x == "0" then Nothing else Just (read x)
+  return $ DEdef name tp minSz maxSz minNum maxNum Nothing
+
+elemToValids :: Element -> Either T.Text (T.Text, [T.Text])
+elemToValids (Element nm attrs ctnt line) = do
+  checkName "valids" nm line
+  path <- getRequiredAttr line "valids" "path" attrs
+  return (path, T.pack . strContent <$> onlyElems ctnt)
+
+elemToValue :: Element -> Either T.Text (T.Text, T.Text)
+elemToValue e@(Element nm attrs _ line) = do
+  checkName "value" nm line
+  path <- getRequiredAttr line "value" "path" attrs
+  return (path, T.pack $ strContent e)
+
+getDEGType :: Element -> Either T.Text T.Text
+getDEGType (Element nm attrs _ line) = do
+  checkName "DEG" nm line
+  getRequiredAttr line "DEG" "type" attrs
 
 -- FIXME: Some DEG references in xml set names and minnums ... thats
 -- somewhat confusing - maybe I need to respect that when splicing
 -- things in (?)
-elemToDEG :: M.Map T.Text DEG -> Element -> Maybe (T.Text, DEG)
-elemToDEG degs (Element nm attrs ctnt _) = do
-    when (qName nm /= "DEGdef") Nothing
-    degid <- T.pack <$> findAttrByKey "id" attrs
-    items <- L.foldl' f (Just []) (onlyElems ctnt)
-    return (degid, DEG "" 0 Nothing (reverse items))
+elemToDEG :: M.Map T.Text DEG -> Element -> Either T.Text (T.Text, DEG)
+elemToDEG degs (Element nm attrs ctnt line) = do
+  checkName "DEGdef" nm line
+  id_ <- getRequiredAttr line "DEGdef" "id" attrs
+  items <- foldM f [] (onlyElems ctnt)
+  return (id_, DEG "" 0 Nothing (reverse items))
   where
-    f (Just items) e = ((:items) <$> elemToDE e) <|>
-                       (getDEGType e >>= \id_ -> M.lookup id_ degs >>= \deg -> return (degItems deg ++ items)) <|>
-                       ((\(x,y) -> map (setDEValids x y) items) <$> elemToValids e) <|>
-                       ((\(x,y) -> map (setDEValue x y) items) <$> elemToValue e)
-    f _ _            = Nothing
+    f items e | qName (elName e) == "DE"     = (:items) <$> elemToDE e
+    f items e | qName (elName e) == "DEG"    = getDEGType e >>= getReferencedItem "DEGdef" line degs >>= return . (++items) . degItems
+    f items e | qName (elName e) == "valids" = (\(x,y) -> map (setDEValids x y) items) <$> elemToValids e
+    f items e | qName (elName e) == "value"  = (\(x,y) -> map (setDEValue x y) items) <$> elemToValue e
+    f _     e                                = err (elLine e) ("Unexpected element while processing DEGdef: " <> T.pack (qName (elName e)))
 
 findRequestTag :: [Attr] -> Bool
 findRequestTag = maybe False (== "1") . findAttrByKey "needsRequestTag"
@@ -143,23 +166,21 @@ getCommonAttrsWDefault attrs = (name, minnum, maxnum)
     minnum = maybe 1 read (findAttrByKey "minnum" attrs)
     maxnum = maybe (Just 1) (\x -> let y = read x in if y == 0 then Nothing else Just y) (findAttrByKey "maxnum" attrs)
 
-elemToSEG :: M.Map T.Text DEG -> Element -> Maybe (T.Text, SEG)
-elemToSEG degs (Element nm attrs ctnt _) = do
-  when (qName nm /= "SEGdef") Nothing
-  id_ <- T.pack <$> findAttrByKey "id" attrs
-  items <- L.foldl' f (Just []) (onlyElems ctnt)
+elemToSEG :: M.Map T.Text DEG -> Element -> Either T.Text (T.Text, SEG)
+elemToSEG degs (Element nm attrs ctnt line) = do
+  checkName "SEGdef" nm line
+  id_ <- getRequiredAttr line "SEGdef" "id" attrs
+  items <- foldM f [] (onlyElems ctnt)
   return (id_, SEG "" (findRequestTag attrs) (reverse items))
   where
-    f :: Maybe [SEGItem] -> Element -> Maybe [SEGItem]
-    f (Just items) e = ((:items) . DEItem <$> elemToDE e) <|>
-                       (let attrs                = elAttribs e
-                            (nm, minnum, maxnum) = getCommonAttrsWDefault attrs
-                        in do tp <- T.pack <$> findAttrByKey "type" attrs
-                              (DEG _ _ _ des) <- M.lookup tp degs
-                              return (DEGItem (DEG nm minnum maxnum des) : items)) <|>
-                       ((\(x,y) -> map (setSEGValids x y) items) <$> elemToValids e) <|>
-                       ((\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e)
-    f _ _            = Nothing
+    f items e | qName (elName e) == "DE"     = (:items) . DEItem <$> elemToDE e
+    f items e | qName (elName e) == "DEG"    = let (refNm, minnum, maxnum) = getCommonAttrsWDefault (elAttribs e)
+                                               in do tp <- getRequiredAttr line (T.pack (qName (elName e))) "type" (elAttribs e)
+                                                     (DEG _ _ _ des) <- getReferencedItem "DEG" (elLine e) degs tp
+                                                     return $ DEGItem (DEG refNm minnum maxnum des) : items
+    f items e | qName (elName e) == "valids" = (\(x,y) -> map (setSEGValids x y) items) <$> elemToValids e
+    f items e | qName (elName e) == "value"  = (\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e
+    f _     e                                = err (elLine e) ("Unexpected element while processing SEGdef: " <> T.pack (qName (elName e)))
 
 -- The way SFs and SEGs are represented is not really consistent with
 -- the XML representation. In particular, SFs can be nested inside the
@@ -183,40 +204,40 @@ elemToSEG degs (Element nm attrs ctnt _) = do
 -- and the minnums and maxnums are relaxed when an SF is referenced.
 -- This might be too simplistic in some cases, I'll fix that if it
 -- turns out to be the case.
-elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe [SF]
-elemToSFItem segs sfs (Element nm attrs _ _) = do
-  type_ <- T.pack <$> findAttrByKey "type" attrs
+elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text [SF]
+elemToSFItem segs sfs (Element nm attrs _ line) = do
+  type_ <- getRequiredAttr line (T.pack (qName nm)) "type" attrs
   let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
   if (qName nm == "SF")
-  then M.lookup type_ sfs >>= return . map (updateMinMax minnum maxnum)
+  then getReferencedItem "SF" line sfs type_ >>= return . map (updateMinMax minnum maxnum)
   else if (qName nm == "SEG")
-       then M.lookup type_ segs >>= \(SEG _ tag items) -> return $ [SF minnum maxnum [SEG name tag items]]
-       else Nothing
+       then getReferencedItem "SEG" line segs type_ >>= \(SEG _ tag items) -> return $ [SF minnum maxnum [SEG name tag items]]
+       else err line ("Not a SF or SEG: " <> T.pack (qName nm))
   where
     updateMinMax outerMin outerMax (SF innerMin innerMax items) =
       let newMin = min innerMin outerMin
           newMax = max <$> innerMax <*> outerMax
       in SF newMin newMax  items
 
-elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe (T.Text, [SF])
-elemToSF segs sfs (Element nm attrs ctnt _) =  do
-  when (qName nm /= "SFdef") Nothing
-  id_ <- T.pack <$> findAttrByKey "id" attrs
+elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text (T.Text, [SF])
+elemToSF segs sfs (Element nm attrs ctnt line) =  do
+  checkName "SFdef" nm line
+  id_ <- getRequiredAttr line "SFdef" "id" attrs
   items <- concat <$> traverse (elemToSFItem segs sfs) (onlyElems ctnt)
   return $ (id_, items)
 
-elemToMSG :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Maybe (T.Text, MSG)
-elemToMSG segs sfs (Element nm attrs ctnt _) = do
-  when (qName nm /= "MSGdef") Nothing
-  id_ <- T.pack <$> findAttrByKey "id" attrs
+elemToMSG :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text (T.Text, MSG)
+elemToMSG segs sfs (Element nm attrs ctnt line) = do
+  checkName "MSGdef" nm line
+  id_ <- getRequiredAttr line "MSGdef" "id" attrs
   let reqSig   = maybe True (/="1") $ findAttrByKey "dontsign" attrs
       reqCrypt = maybe True (/="1") $ findAttrByKey "dontcrypt" attrs
-  items <- L.foldl' f (Just []) (onlyElems ctnt)
+  items <- foldM f [] (onlyElems ctnt)
   return $ (id_, MSG reqSig reqCrypt (reverse items))
   where
-    f (Just items) e = ((++ items) <$> elemToSFItem segs sfs e) <|>
-                       ((\(x,y) -> map (setSFValue x y) items) <$> elemToValue e)
-    f _ _            = Nothing
+    f items e | qName (elName e) == "SF" || qName (elName e) == "SEG" = (++ items) <$> elemToSFItem segs sfs e
+    f items e | qName (elName e) == "value"                           = (\(x,y) -> map (setSFValue x y) items) <$> elemToValue e
+    f _     e                                                         = err (elLine e) ("Unexpected element while processing MSGdef: " <> T.pack (qName (elName e)))
 
 getXml :: String -> IO [Content]
 getXml fname = do
@@ -228,25 +249,25 @@ getXml fname = do
 getChildrenByName :: String -> [Content] -> [Element]
 getChildrenByName name ctnts = onlyElems ctnts >>= filterChildrenName (\x -> name == qName x) >>= elChildren
 
-getDEGs :: [Content] -> M.Map T.Text DEG
-getDEGs = L.foldl' f M.empty . getChildrenByName "DEGs"
+getDEGs :: [Content] -> Either T.Text (M.Map T.Text DEG)
+getDEGs = foldM f M.empty . getChildrenByName "DEGs"
   where
-    f degs e = maybe degs (\(id_, deg) -> M.insert id_ deg degs) $ elemToDEG degs e
+    f degs e = elemToDEG degs e >>= \(id_, deg) -> return (M.insert id_ deg degs)
 
-getSEGs :: M.Map T.Text DEG -> [Content] -> M.Map T.Text SEG
-getSEGs degs = M.fromList . catMaybes . map (elemToSEG degs) . getChildrenByName "SEGs"
+getSEGs :: M.Map T.Text DEG -> [Content] -> Either T.Text (M.Map T.Text SEG)
+getSEGs degs ctnt = M.fromList <$> mapM (elemToSEG degs) (getChildrenByName "SEGs" ctnt)
 
-getSFs :: M.Map T.Text SEG -> [Content] -> M.Map T.Text [SF]
-getSFs segs = L.foldl' f M.empty . getChildrenByName "SFs"
+getSFs :: M.Map T.Text SEG -> [Content] -> Either T.Text (M.Map T.Text [SF])
+getSFs segs ctnt = foldM f M.empty $ getChildrenByName "SFs" ctnt
   where
-    f sfs e = maybe sfs (\(id_, sf) -> M.insert id_ sf sfs) $ elemToSF segs sfs e
+    f sfs e = elemToSF segs sfs e >>= \(id_, sf) -> return (M.insert id_ sf sfs)
 
-getMSGs :: M.Map T.Text SEG -> M.Map T.Text [SF] -> [Content] -> M.Map T.Text MSG
-getMSGs segs sfs = M.fromList . catMaybes . map (elemToMSG segs sfs) . getChildrenByName "MSGs"
+getMSGs :: M.Map T.Text SEG -> M.Map T.Text [SF] -> [Content] -> Either T.Text (M.Map T.Text MSG)
+getMSGs segs sfs ctnt = M.fromList <$> mapM (elemToMSG segs sfs) (getChildrenByName "MSGs" ctnt)
 
-getMSGfromXML :: [Content] -> M.Map T.Text MSG
-getMSGfromXML xml =
-    let degs = getDEGs xml
-        segs = getSEGs degs xml
-        sfs  = getSFs segs xml
-    in getMSGs segs sfs xml
+getMSGfromXML :: [Content] -> Either T.Text (M.Map T.Text MSG)
+getMSGfromXML xml = do
+  degs <- getDEGs xml
+  segs <- getSEGs degs xml
+  sfs  <- getSFs segs xml
+  getMSGs segs sfs xml
