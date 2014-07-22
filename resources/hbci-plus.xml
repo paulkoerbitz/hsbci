@@ -76,6 +76,11 @@
       <value path="parname">1</value>
     </DEGdef>
 
+    <DEGdef id="KIK">
+      <DE name="country" type="Ctr" />
+      <DE maxsize="30" minnum="0" name="blz" type="AN" />
+    </DEGdef>
+
     <DEGdef id="KeyName">
       <DEG type="KIK" />
       <DE name="userid" type="ID" />
@@ -87,11 +92,6 @@
         <validvalue>S</validvalue>
         <validvalue>V</validvalue>
       </valids>
-    </DEGdef>
-
-    <DEGdef id="KIK">
-      <DE name="country" type="Ctr" />
-      <DE maxsize="30" minnum="0" name="blz" type="AN" />
     </DEGdef>
 
     <DEGdef id="KLimit">
@@ -673,6 +673,11 @@
       <DE name="canmaxentries" type="JN" />
     </DEGdef>
 
+    <DEGdef id="PinTanGV">
+      <DE maxsize="6" name="segcode" type="AN" />
+      <DE name="needtan" type="JN" />
+    </DEGdef>
+
     <DEGdef id="ParPinTan">
       <DEG maxnum="999" minnum="0" type="PinTanGV" />
     </DEGdef>
@@ -764,6 +769,277 @@
       <DE maxsize="7" name="maxnum" type="Num" />
       <DE name="needtotal" type="JN" />
       <DE name="cansingletransfer" type="JN" />
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams1">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE name="cantandelay" type="JN" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams2">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams3">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams4">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+	    <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
+	    <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+	    <DE name="needsmsaccount" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+	    <DE name="ischallengestructured" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams5">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
+      <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="4" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE maxsize="1" name="needsmsaccount" type="Code" />
+      <DE maxsize="1" name="needorderaccount" type="Code" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="ischallengestructured" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TANInfo">
+      <DE maxsize="2" name="usagecode" type="Code" />
+      <DE maxsize="99" minnum="0" name="usagetxt" type="AN" />
+      <DE maxsize="99" minnum="0" name="tan" type="AN" />
+      <DE minnum="0" name="usagedate" type="Date" />
+      <DE minnum="0" name="usagetime" type="Time" />
+    </DEGdef>
+
+    <DEGdef id="TANMediaInfo1">
+      <DE maxsize="1" name="mediacategory" type="AN" />
+      <DE maxsize="1" name="status" type="Code" />
+      <DE minnum="0" name="cardnumber" type="ID" />
+      <DE minnum="0" name="cardseqnumber" type="ID" />
+      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
+      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
+      <DE minnum="0" name="lastuse" type="Date" />
+      <DE minnum="0" name="activatedon" type="Date" />
+
+      <valids path="mediacategory">
+        <validvalue>G</validvalue>
+        <validvalue>L</validvalue>
+      </valids>
+      <valids path="status">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+        <validvalue>3</validvalue>
+        <validvalue>4</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TANMediaInfo2">
+      <DE maxsize="1" name="mediacategory" type="AN" />
+      <DE maxsize="1" name="status" type="Code" />
+      <DE minnum="0" name="cardnumber" type="ID" />
+      <DE minnum="0" name="cardseqnumber" type="ID" />
+      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
+      <DEG minnum="0" name="KTV" type="KTV2opt" />
+      <DE minnum="0" name="validfrom" type="Date" />
+      <DE minnum="0" name="validto" type="Date" />
+      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
+      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
+      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
+      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
+      <DE minnum="0" name="lastuse" type="Date" />
+      <DE minnum="0" name="activatedon" type="Date" />
+
+      <valids path="mediacategory">
+        <validvalue>G</validvalue>
+        <validvalue>L</validvalue>
+        <validvalue>M</validvalue>
+      </valids>
+      <valids path="status">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+        <validvalue>3</validvalue>
+        <validvalue>4</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TANMediaInfo3">
+      <DE maxsize="1" name="mediacategory" type="AN" />
+      <DE maxsize="1" name="status" type="Code" />
+      <DE minnum="0" name="cardnumber" type="ID" />
+      <DE minnum="0" name="cardseqnumber" type="ID" />
+      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
+      <DEG minnum="0" name="KTV" type="KTV2opt" />
+      <DE minnum="0" name="validfrom" type="Date" />
+      <DE minnum="0" name="validto" type="Date" />
+      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
+      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
+      <DE maxsize="35" minnum="0" name="mobilenumber_secure" type="AN" />
+      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
+      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
+      <DE minnum="0" name="lastuse" type="Date" />
+      <DE minnum="0" name="activatedon" type="Date" />
+
+      <valids path="mediacategory">
+        <validvalue>G</validvalue>
+        <validvalue>L</validvalue>
+        <validvalue>M</validvalue>
+        <validvalue>S</validvalue>
+      </valids>
+      <valids path="status">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+        <validvalue>3</validvalue>
+        <validvalue>4</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TANMediaInfo4">
+      <DE maxsize="1" name="mediacategory" type="AN" />
+      <DE maxsize="1" name="status" type="Code" />
+      <DE minnum="0" name="cardnumber" type="ID" />
+      <DE minnum="0" name="cardseqnumber" type="ID" />
+      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
+      <DEG minnum="0" name="KTV" type="KTV2opt" />
+      <DE minnum="0" name="validfrom" type="Date" />
+      <DE minnum="0" name="validto" type="Date" />
+      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
+      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
+      <DE maxsize="35" minnum="0" name="mobilenumber_secure" type="AN" />
+      <DE maxsize="35" minnum="0" name="mobilenumber" type="AN" />
+      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
+      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
+      <DE minnum="0" name="lastuse" type="Date" />
+      <DE minnum="0" name="activatedon" type="Date" />
+
+      <valids path="mediacategory">
+        <validvalue>G</validvalue>
+        <validvalue>L</validvalue>
+        <validvalue>M</validvalue>
+        <validvalue>S</validvalue>
+        <validvalue>A</validvalue>
+      </valids>
+      <valids path="status">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+        <validvalue>3</validvalue>
+        <validvalue>4</validvalue>
+      </valids>
     </DEGdef>
 
     <DEGdef id="ParTAN2Step1">
@@ -961,11 +1237,6 @@
       <DE maxnum="99" maxsize="38" name="risikodescr" type="AN" />
     </DEGdef>
 
-    <DEGdef id="PinTanGV">
-      <DE maxsize="6" name="segcode" type="AN" />
-      <DE name="needtan" type="JN" />
-    </DEGdef>
-
     <DEGdef id="Prolong">
       <DE maxsize="3" name="laufzeit" type="Num" />
       <DEG type="BTG" />
@@ -1001,279 +1272,6 @@
         <validvalue>D</validvalue>
       </valids>
     </DEGdef>
-
-    <DEGdef id="TAN2StepParams1">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE name="cantandelay" type="JN" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams2">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams3">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams4">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-	    <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
-	    <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-	    <DE name="needsmsaccount" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-	    <DE name="ischallengestructured" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams5">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
-      <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="4" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE maxsize="1" name="needsmsaccount" type="Code" />
-      <DE maxsize="1" name="needorderaccount" type="Code" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="ischallengestructured" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TANInfo">
-      <DE maxsize="2" name="usagecode" type="Code" />
-      <DE maxsize="99" minnum="0" name="usagetxt" type="AN" />
-      <DE maxsize="99" minnum="0" name="tan" type="AN" />
-      <DE minnum="0" name="usagedate" type="Date" />
-      <DE minnum="0" name="usagetime" type="Time" />
-    </DEGdef>
-
-
-    <DEGdef id="TANMediaInfo1">
-      <DE maxsize="1" name="mediacategory" type="AN" />
-      <DE maxsize="1" name="status" type="Code" />
-      <DE minnum="0" name="cardnumber" type="ID" />
-      <DE minnum="0" name="cardseqnumber" type="ID" />
-      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
-      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
-      <DE minnum="0" name="lastuse" type="Date" />
-      <DE minnum="0" name="activatedon" type="Date" />
-
-      <valids path="mediacategory">
-        <validvalue>G</validvalue>
-        <validvalue>L</validvalue>
-      </valids>
-      <valids path="status">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-        <validvalue>3</validvalue>
-        <validvalue>4</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TANMediaInfo2">
-      <DE maxsize="1" name="mediacategory" type="AN" />
-      <DE maxsize="1" name="status" type="Code" />
-      <DE minnum="0" name="cardnumber" type="ID" />
-      <DE minnum="0" name="cardseqnumber" type="ID" />
-      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
-      <DEG minnum="0" name="KTV" type="KTV2opt" />
-      <DE minnum="0" name="validfrom" type="Date" />
-      <DE minnum="0" name="validto" type="Date" />
-      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
-      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
-      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
-      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
-      <DE minnum="0" name="lastuse" type="Date" />
-      <DE minnum="0" name="activatedon" type="Date" />
-
-      <valids path="mediacategory">
-        <validvalue>G</validvalue>
-        <validvalue>L</validvalue>
-        <validvalue>M</validvalue>
-      </valids>
-      <valids path="status">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-        <validvalue>3</validvalue>
-        <validvalue>4</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TANMediaInfo3">
-      <DE maxsize="1" name="mediacategory" type="AN" />
-      <DE maxsize="1" name="status" type="Code" />
-      <DE minnum="0" name="cardnumber" type="ID" />
-      <DE minnum="0" name="cardseqnumber" type="ID" />
-      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
-      <DEG minnum="0" name="KTV" type="KTV2opt" />
-      <DE minnum="0" name="validfrom" type="Date" />
-      <DE minnum="0" name="validto" type="Date" />
-      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
-      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
-      <DE maxsize="35" minnum="0" name="mobilenumber_secure" type="AN" />
-      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
-      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
-      <DE minnum="0" name="lastuse" type="Date" />
-      <DE minnum="0" name="activatedon" type="Date" />
-
-      <valids path="mediacategory">
-        <validvalue>G</validvalue>
-        <validvalue>L</validvalue>
-        <validvalue>M</validvalue>
-        <validvalue>S</validvalue>
-      </valids>
-      <valids path="status">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-        <validvalue>3</validvalue>
-        <validvalue>4</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TANMediaInfo4">
-      <DE maxsize="1" name="mediacategory" type="AN" />
-      <DE maxsize="1" name="status" type="Code" />
-      <DE minnum="0" name="cardnumber" type="ID" />
-      <DE minnum="0" name="cardseqnumber" type="ID" />
-      <DE maxsize="2" minnum="0" name="cardtype" type="Num" />
-      <DEG minnum="0" name="KTV" type="KTV2opt" />
-      <DE minnum="0" name="validfrom" type="Date" />
-      <DE minnum="0" name="validto" type="Date" />
-      <DE maxsize="20" minnum="0" name="tanlistnumber" type="AN" />
-      <DE maxsize="32" minnum="0" name="medianame" type="AN" />
-      <DE maxsize="35" minnum="0" name="mobilenumber_secure" type="AN" />
-      <DE maxsize="35" minnum="0" name="mobilenumber" type="AN" />
-      <DEG minnum="0" name="smsaccount" type="KTVIntOpt" />
-      <DE maxsize="3" minnum="0" name="freetans" type="Num" />
-      <DE minnum="0" name="lastuse" type="Date" />
-      <DE minnum="0" name="activatedon" type="Date" />
-
-      <valids path="mediacategory">
-        <validvalue>G</validvalue>
-        <validvalue>L</validvalue>
-        <validvalue>M</validvalue>
-        <validvalue>S</validvalue>
-        <validvalue>A</validvalue>
-      </valids>
-      <valids path="status">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-        <validvalue>3</validvalue>
-        <validvalue>4</validvalue>
-      </valids>
-    </DEGdef>
-
 
 
     <DEGdef id="TimeRange">
@@ -7990,21 +7988,10 @@
   </SEGs>
 
   <SFs>
-    <SFdef id="BPD">
-      <SEG name="BPA" type="BPA2" />
-      <SEG minnum="0" name="CommListRes" type="CommListRes2" />
-      <SEG minnum="0" name="CommListRes" type="CommListRes3" />
-      <SEG minnum="0" name="SecMethod" type="SecMethod2" />
-      <SEG minnum="0" name="SecMethod" type="CompMethod1" />
-      <SF maxnum="0" minnum="0" type="Params" />
-    </SFdef>
-
     <SFdef id="UPD">
       <SEG name="UPA" type="UPA2" />
       <SEG maxnum="0" minnum="0" name="KInfo" type="KInfo4" />
     </SFdef>
-
-
 
     <SFdef id="GV">
       <SEG minnum="0" type="AccInfo1" />
@@ -8454,6 +8441,15 @@
       <SEG minnum="0" type="TemplateDPar" />
       <SEG minnum="0" type="Template2Par" />
       <SEG minnum="0" type="TemplatePar" />
+    </SFdef>
+
+    <SFdef id="BPD">
+      <SEG name="BPA" type="BPA2" />
+      <SEG minnum="0" name="CommListRes" type="CommListRes2" />
+      <SEG minnum="0" name="CommListRes" type="CommListRes3" />
+      <SEG minnum="0" name="SecMethod" type="SecMethod2" />
+      <SEG minnum="0" name="SecMethod" type="CompMethod1" />
+      <SF maxnum="0" minnum="0" type="Params" />
     </SFdef>
   </SFs>
 
