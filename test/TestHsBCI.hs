@@ -388,6 +388,18 @@ getMSGfromXMLTest =
     ]
   ]
 
+fillDeTests :: [TF.Test]
+fillDeTests =
+  [ testGroup "fillDeTests - simple DE examples"
+    [ testCase "DEStr is not modified" $
+      assertEq (Right (DEStr "abc"))
+      (fillDe M.empty "" (DEval (DEStr "abc")))
+    , testCase "DEBinary is not modified" $
+      assertEq (Right (DEBinary "abc"))
+      (fillDe M.empty "" (DEval (DEBinary "abc")))
+    ]
+  ]
+
 fillMsgTests :: [TF.Test]
 fillMsgTests =
   [ testGroup "Simple message examples"
@@ -447,6 +459,7 @@ standaloneTests = concat [ parserTests
                          , setDETests
                          , elemToDEGTests
                          , elemToSEGTests
+                         , fillDeTests
                          , fillMsgTests
                          , elemToSFTests
                          , elemToMSGTests
