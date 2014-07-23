@@ -19,34 +19,6 @@ import           Data.HBCI.Types
 findAttrByKey :: String -> [Attr] -> Maybe String
 findAttrByKey k attr = attrVal <$> L.find (\a -> qName (attrKey a) == k) attr
 
-{-
-setDEGItem :: (DEGItem -> DEGItem) -> [T.Text] -> DEGItem -> DEGItem
-setDEGItem f [nm]      de@(DE deNm _ _ _ _ _ _)              = if nm == deNm then f de else de
-setDEGItem f (nm:nms) deg@(DEG degNm _ _ (DEGdef items)) =
-  if nm /= degNm then deg
-  else deg { degDef = DEGdef (map (setDEGItem f nms) items) }
-setDEGItem _ _ v                                             = v
-
-setDEGValids :: T.Text -> [T.Text] -> DEGItem -> DEGItem
-setDEGValids nm valids = setDEGItem (\de -> de { deValids = Just valids }) (T.split (== '.') nm)
-
-setDEGValue :: T.Text -> T.Text -> DEGItem -> DEGItem
-setDEGValue nm val = setDEGItem (\_ -> DEVal (DEStr val)) (T.split (== '.') nm)
-
-setSFItem :: (DEGItem -> DEGItem) -> [T.Text] -> SFItem -> SFItem
-setSFItem f (nm:nms) seg@(SEG segNm _ _ (SEGdef tag items)) =
-  if nm == segNm then seg { sfiSegDef = SEGdef tag (map (setDEGItem f nms) items) } else seg
-setSFItem f (nm:nms)  sf@(SF sfNm _ _ (SFdef items)) =
-  if nm == sfNm then sf { sfiSfDef = SFdef (map (setSFItem f nms) items) } else sf
-setSFItem _ _       x = x
-
-setSFValue :: T.Text -> T.Text -> SFItem -> SFItem
-setSFValue nm val = setSFItem (\_ -> DEVal (DEStr val)) (T.split (== '.') nm)
--}
--- setDE f (nm:nms) deg@(DEG degNm _ _ (DEGdef items)) =
---   if nm /= degNm then deg
---   else deg { degDef = DEGdef (map (setDEGItem f nms) items) }
-
 setDE :: (DE -> DE) -> [T.Text] -> DE -> DE
 setDE f nms de@(DEdef deNm _ _ _ _ _ _) = if nms == (T.split (== '.') deNm) then f de else de
 setDE _ _   v                        = v
