@@ -21,6 +21,10 @@ assertEq expected actual = assertBool msg (expected == actual)
   where
     msg = "Expected: " ++ show expected ++ ", but got: " ++ show actual
 
+missingTestCase :: IO ()
+missingTestCase =
+  assertBool "Missing test case -- expected failure" False
+
 parserTests :: [TF.Test]
 parserTests = [ testGroup "Small known examples for HBCI message parsing"
           [ testCase "Empty message" $ assertEq (Right []) (parser "")
@@ -397,6 +401,69 @@ fillDeTests =
     , testCase "DEBinary is not modified" $
       assertEq (Right (DEBinary "abc"))
       (fillDe M.empty "" (DEval (DEBinary "abc")))
+    , testCase "Simple replacement" $
+      assertEq (Right (DEStr "abc"))
+      (fillDe (M.fromList [("deKey", "abc")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+    , testCase "Replacement with prefix" $
+      assertEq (Right (DEStr "abc"))
+      (fillDe (M.fromList [("prefix.suffix.deKey", "abc")]) "prefix.suffix" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+    , testCase "Names with multiple dots are found" $
+      assertEq (Right (DEStr "abc"))
+      (fillDe (M.fromList [("prefix.suffix.deKey0.deKey1", "abc")]) "prefix.suffix" (DEdef "deKey0.deKey1" AN 0 Nothing 0 Nothing Nothing))
+    , testCase "fillDe gives error if name is outside of valids" $
+      assertEq (Left "Value 'abc' for key 'deKey' not in valid values '[\"ab\",\"c\",\"ac\"]'")
+      (fillDe (M.fromList [("deKey", "abc")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing (Just ["ab", "c", "ac"])))
+    , testCase "AN replacement results in string" $
+      assertEq (Right (DEStr "abc0123"))
+      (fillDe (M.fromList [("deKey", "abc0123")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+    , testCase "AN replacement escapes ?@':+ with ?" $
+      assertEq (Right (DEStr "???@?'?:?+"))
+      (fillDe (M.fromList [("deKey", "?@':+")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+    , testCase "Bin replacement results in binary" $
+      assertEq (Right (DEBinary "?@'"))
+      (fillDe (M.fromList [("deKey", "?@'")]) "" (DEdef "deKey" Bin 0 Nothing 0 Nothing Nothing))
+    , testCase "Code replacement results in string" $
+      assertEq (Right (DEStr "123456"))
+      (fillDe (M.fromList [("deKey", "123456")]) "" (DEdef "deKey" Code 0 Nothing 0 Nothing Nothing))
+    , testCase "Ctr replacement results in string" $
+      assertEq (Right (DEStr "123456"))
+      (fillDe (M.fromList [("deKey", "123456")]) "" (DEdef "deKey" Ctr 0 Nothing 0 Nothing Nothing))
+    , testCase "Cur replacement results in string" $
+      assertEq (Right (DEStr "EUR"))
+      (fillDe (M.fromList [("deKey", "EUR")]) "" (DEdef "deKey" Cur 0 Nothing 0 Nothing Nothing))
+    , testCase "DTAUS replacement results in binary" $
+      assertEq (Right (DEBinary "SomethingSomething:?@'"))
+      (fillDe (M.fromList [("deKey", "SomethingSomething:?@'")]) "" (DEdef "deKey" DTAUS 0 Nothing 0 Nothing Nothing))
+    , testCase "Date replacement results in string" $
+      assertEq (Right (DEStr "24.07.2014"))
+      (fillDe (M.fromList [("deKey", "24.07.2014")]) "" (DEdef "deKey" Date 0 Nothing 0 Nothing Nothing))
+    , testCase "Dig replacement results in string" $
+      assertEq (Right (DEStr "0123456789"))
+      (fillDe (M.fromList [("deKey", "0123456789")]) "" (DEdef "deKey" Dig 0 Nothing 0 Nothing Nothing))
+    , testCase "ID replacement results in string" $
+      assertEq (Right (DEStr "0123456789"))
+      (fillDe (M.fromList [("deKey", "0123456789")]) "" (DEdef "deKey" ID 0 Nothing 0 Nothing Nothing))
+    , testCase "JN replacement results in string" $
+      assertEq (Right (DEStr "J"))
+      (fillDe (M.fromList [("deKey", "J")]) "" (DEdef "deKey" JN 0 Nothing 0 Nothing Nothing))
+    , testCase "Num replacement results in string" $
+      assertEq (Right (DEStr "0123456789"))
+      (fillDe (M.fromList [("deKey", "0123456789")]) "" (DEdef "deKey" Num 0 Nothing 0 Nothing Nothing))
+    , testCase "Time replacement results in string" $
+      assertEq (Right (DEStr "12?:13?:14"))
+      (fillDe (M.fromList [("deKey", "12:13:14")]) "" (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
+    , testCase "Wrt replacement results in string" $
+      assertEq (Right (DEStr "123,45"))
+      (fillDe (M.fromList [("deKey", "123,45")]) "" (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
+    , testCase "fillDe gives error if provided string too long" $
+      assertEq (Left "Field 'deKey' has a maxsize of 5 but provided value '123456' has a length of 6")
+      (fillDe (M.fromList [("deKey", "123456")]) "" (DEdef "deKey" AN 0 (Just 5) 0 Nothing Nothing))
+    , testCase "fillDe fills entry with 0s if provided Num too short" $
+      assertEq (Right (DEStr "000123"))
+      (fillDe (M.fromList [("deKey", "123")]) "" (DEdef "deKey" Num 6 (Just 6) 0 Nothing Nothing))
+    , testCase "fillDe gives error if values of other types are too short" $
+      assertEq (Left "Field 'deKey' has a minsize of 6 but provided value '123' has a length of 3")
+      (fillDe (M.fromList [("deKey", "123")]) "" (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
     ]
   ]
 
@@ -438,8 +505,8 @@ fillMsgTests =
                 (MSG False False
                  [SF 0 Nothing
                   [SEG "seg1" False
-                   [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing
-                                                  ,DEdef "de2" AN 9 Nothing 1 (Just 1) Nothing])]]]))
+                   [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 1 Nothing 1 (Just 1) Nothing
+                                                  ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])]]]))
     -- What else to test?
     -- Validation of minsize, maxsize, minnum, maxnum
     -- Validation of DETypes
