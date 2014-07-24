@@ -15,6 +15,7 @@ import           Data.HBCI.Types
 import           Data.HBCI.Parser
 import           Data.HBCI.HbciDef
 import           Data.HBCI.Messages
+import           Data.HBCI.Gen
 
 assertEq :: (Eq a, Show a) => a -> a -> IO ()
 assertEq expected actual = assertBool msg (expected == actual)
@@ -26,35 +27,36 @@ missingTestCase =
   assertBool "Missing test case -- expected failure" False
 
 parserTests :: [TF.Test]
-parserTests = [ testGroup "Small known examples for HBCI message parsing"
-          [ testCase "Empty message" $ assertEq (Right []) (parser "")
-          , testCase "Single segment" $
-            assertEq (Right [[[DEStr "HNHBK", DEStr "1", DEStr "3", DEStr "1234123"]]])
-                     (parser "HNHBK:1:3:1234123'")
-          , testCase "Binary Form" $
-            assertEq (Right [[[DEStr "HNHBK", DEBinary "?????"]]]) (parser "HNHBK:@5@?????'")
-          , testCase "Binary Form too short" $
-            assertEq (Left "parseBinary: string after '@' too short") (parser "HNHBK:@5@???'")
-          , testCase "Questionmark Escape" $
-            assertEq (Right [[[DEStr "HNHBK", DEStr "?@:+'"]]]) (parser "HNHBK:???@?:?+?''")
-          , testCase "Empty DEs1" $
-            assertEq (Right [[[DEStr "", DEStr ""]]]) (parser ":'")
-          , testCase "Empty DEs2" $
-            assertEq (Right [[[DEStr "", DEStr "", DEStr ""], [DEStr ""], [DEStr ""]]]) (parser "::++'")
-          , testCase "Empty DEs3" $
-            assertEq (Right [[[DEStr "", DEStr ""], [DEStr ""]], [[DEStr ""], [DEStr "", DEStr ""]]])
-                     (parser ":+'+:'")
-          , testCase "Two Segments" $
-            assertEq (Right [[[DEStr "HNHBK", DEStr "1"], [DEStr "2"]], [[DEStr "HNHBS"], [DEStr "3", DEStr "4"]]])
-                     (parser "HNHBK:1+2'HNHBS+3:4'")
-          ],
-          testGroup "Real HBCI messages"
-          [ testCase "Encrypted message" $
-            assertEq
-            (Right [[[DEStr "HNHBK",DEStr "1",DEStr "3"],[DEStr "000000000369"],[DEStr "300"],[DEStr "0"],[DEStr "1"]],[[DEStr "HNVSK",DEStr "998",DEStr "3"],[DEStr "PIN",DEStr "1"],[DEStr "998"],[DEStr "1"],[DEStr "1",DEStr "",DEStr "0"],[DEStr "1",DEStr "20140626",DEStr "114832"],[DEStr "2",DEStr "2",DEStr "13",DEBinary "????????",DEStr "5",DEStr "1"],[DEStr "280",DEStr "20690500",DEStr "SomeUser",DEStr "V",DEStr "0",DEStr "0"],[DEStr "0"]],[[DEStr "HNVSD",DEStr "999",DEStr "1"],[DEBinary "HNSHK:2:4+PIN:1+999+844137429+1+1+1::0+1+1:20140626:114832+1:999:1+6:10:16+280:20690500:SomeUser:S:0:0'HKIDN:3:2+280:20690500+SomeUser+0+1'HKVVB:4:3+0+0+0+HBCI4Java+2.5'HKSYN:5:3+0'HNSHA:6:2+844137429++XXXXX'"]],[[DEStr "HNHBS",DEStr "7",DEStr "1"],[DEStr "1"]]])
-            (parser "HNHBK:1:3+000000000369+300+0+1'HNVSK:998:3+PIN:1+998+1+1::0+1:20140626:114832+2:2:13:@8@????????:5:1+280:20690500:SomeUser:V:0:0+0'HNVSD:999:1+@208@HNSHK:2:4+PIN:1+999+844137429+1+1+1::0+1+1:20140626:114832+1:999:1+6:10:16+280:20690500:SomeUser:S:0:0'HKIDN:3:2+280:20690500+SomeUser+0+1'HKVVB:4:3+0+0+0+HBCI4Java+2.5'HKSYN:5:3+0'HNSHA:6:2+844137429++XXXXX''HNHBS:7:1+1'")
-          ]
-        ]
+parserTests =
+  [ testGroup "Small known examples for HBCI message parsing"
+    [ testCase "Empty message" $ assertEq (Right []) (parser "")
+    , testCase "Single segment" $
+      assertEq (Right [[[DEStr "HNHBK", DEStr "1", DEStr "3", DEStr "1234123"]]])
+      (parser "HNHBK:1:3:1234123'")
+    , testCase "Binary Form" $
+      assertEq (Right [[[DEStr "HNHBK", DEBinary "?????"]]]) (parser "HNHBK:@5@?????'")
+    , testCase "Binary Form too short" $
+      assertEq (Left "parseBinary: string after '@' too short") (parser "HNHBK:@5@???'")
+    , testCase "Questionmark Escape" $
+      assertEq (Right [[[DEStr "HNHBK", DEStr "?@:+'"]]]) (parser "HNHBK:???@?:?+?''")
+    , testCase "Empty DEs1" $
+      assertEq (Right [[[DEStr "", DEStr ""]]]) (parser ":'")
+    , testCase "Empty DEs2" $
+      assertEq (Right [[[DEStr "", DEStr "", DEStr ""], [DEStr ""], [DEStr ""]]]) (parser "::++'")
+    , testCase "Empty DEs3" $
+      assertEq (Right [[[DEStr "", DEStr ""], [DEStr ""]], [[DEStr ""], [DEStr "", DEStr ""]]])
+      (parser ":+'+:'")
+    , testCase "Two Segments" $
+      assertEq (Right [[[DEStr "HNHBK", DEStr "1"], [DEStr "2"]], [[DEStr "HNHBS"], [DEStr "3", DEStr "4"]]])
+      (parser "HNHBK:1+2'HNHBS+3:4'")
+    ]
+  , testGroup "Real HBCI messages"
+    [ testCase "Encrypted message" $
+      assertEq
+      (Right [[[DEStr "HNHBK",DEStr "1",DEStr "3"],[DEStr "000000000369"],[DEStr "300"],[DEStr "0"],[DEStr "1"]],[[DEStr "HNVSK",DEStr "998",DEStr "3"],[DEStr "PIN",DEStr "1"],[DEStr "998"],[DEStr "1"],[DEStr "1",DEStr "",DEStr "0"],[DEStr "1",DEStr "20140626",DEStr "114832"],[DEStr "2",DEStr "2",DEStr "13",DEBinary "????????",DEStr "5",DEStr "1"],[DEStr "280",DEStr "20690500",DEStr "SomeUser",DEStr "V",DEStr "0",DEStr "0"],[DEStr "0"]],[[DEStr "HNVSD",DEStr "999",DEStr "1"],[DEBinary "HNSHK:2:4+PIN:1+999+844137429+1+1+1::0+1+1:20140626:114832+1:999:1+6:10:16+280:20690500:SomeUser:S:0:0'HKIDN:3:2+280:20690500+SomeUser+0+1'HKVVB:4:3+0+0+0+HBCI4Java+2.5'HKSYN:5:3+0'HNSHA:6:2+844137429++XXXXX'"]],[[DEStr "HNHBS",DEStr "7",DEStr "1"],[DEStr "1"]]])
+      (parser "HNHBK:1:3+000000000369+300+0+1'HNVSK:998:3+PIN:1+998+1+1::0+1:20140626:114832+2:2:13:@8@????????:5:1+280:20690500:SomeUser:V:0:0+0'HNVSD:999:1+@208@HNSHK:2:4+PIN:1+999+844137429+1+1+1::0+1+1:20140626:114832+1:999:1+6:10:16+280:20690500:SomeUser:S:0:0'HKIDN:3:2+280:20690500+SomeUser+0+1'HKVVB:4:3+0+0+0+HBCI4Java+2.5'HKSYN:5:3+0'HNSHA:6:2+844137429++XXXXX''HNHBS:7:1+1'")
+    ]
+  ]
 
 elemToDETests :: [TF.Test]
 elemToDETests =
@@ -315,75 +317,7 @@ getMSGfromXMLTest =
   [ \xml -> testGroup "getMSGfromXMLTest"
     [ testCase "DialogInitAnon" $
       assertEq
-      (Right (Just (MSG {msgRequiresSignature = False,
-                   msgRequiresEncryption = False,
-                   msgItems = [SF {sfMinNum = 1,
-                                   sfMaxNum = Just 1,
-                                   sfItems = [SEG {segName = "MsgHead",
-                                                   needsRequestTag = False,
-                                                   segItems = [DEGItem (DEG {degName = "SegHead",
-                                                                             degMinNum = 1,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEval (DEStr "HNHBK")
-                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
-                                                                                        ,DEval (DEStr "3")
-                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
-                                                              ,DEItem (DEdef {deName = "msgsize", deType = Dig, deMinSize = 12, deMaxSize = Just 12, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
-                                                              ,DEItem (DEval (DEStr "220"))
-                                                              ,DEItem (DEval (DEStr "0"))
-                                                              ,DEItem (DEval (DEStr "1"))
-                                                              ,DEGItem (DEG {degName = "",
-                                                                             degMinNum = 0,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEval (DEStr "0")
-                                                                                        ,DEval (DEStr "1")]})]}]}
-                              ,SF {sfMinNum = 1,
-                                   sfMaxNum = Just 1,
-                                   sfItems = [SEG {segName = "Idn",
-                                                   needsRequestTag = False,
-                                                   segItems = [DEGItem (DEG {degName = "SegHead",
-                                                                             degMinNum = 1,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEval (DEStr "HKIDN")
-                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
-                                                                                        ,DEval (DEStr "2")
-                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
-                                                              ,DEGItem (DEG {degName = "",
-                                                                             degMinNum = 1,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEdef {deName = "country", deType = Ctr, deMinSize = 0, deMaxSize = Nothing, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
-                                                                                        ,DEdef {deName = "blz", deType = AN, deMinSize = 0, deMaxSize = Just 30, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
-                                                              ,DEItem (DEval (DEStr "9999999999"))
-                                                              ,DEItem (DEval (DEStr "0"))
-                                                              ,DEItem (DEval (DEStr "0"))]}]}
-                              ,SF {sfMinNum = 1,
-                                   sfMaxNum = Just 1,
-                                   sfItems = [SEG {segName = "",
-                                                   needsRequestTag = False,
-                                                   segItems = [DEGItem (DEG {degName = "SegHead",
-                                                                             degMinNum = 1,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEval (DEStr "HKVVB")
-                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
-                                                                                        ,DEval (DEStr "2")
-                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
-                                                              ,DEItem (DEdef {deName = "BPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
-                                                              ,DEItem (DEdef {deName = "UPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
-                                                              ,DEItem (DEdef {deName = "lang", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Just ["0","1","2","3"]})
-                                                              ,DEItem (DEdef {deName = "prodName", deType = AN, deMinSize = 0, deMaxSize = Just 25, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
-                                                              ,DEItem (DEdef {deName = "prodVersion", deType = AN, deMinSize = 0, deMaxSize = Just 5, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})]}]}
-                              ,SF {sfMinNum = 1,
-                                   sfMaxNum = Just 1,
-                                   sfItems = [SEG {segName = "MsgTail",
-                                                   needsRequestTag = False,
-                                                   segItems = [DEGItem (DEG {degName = "SegHead",
-                                                                             degMinNum = 1,
-                                                                             degMaxNum = Just 1,
-                                                                             degItems = [DEval (DEStr "HNHBS")
-                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
-                                                                                        ,DEval (DEStr "1")
-                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
-                                                              ,DEItem (DEval (DEStr "1"))]}]}]})))
+      (Right (Just dialogInitAnon))
       (getMSGfromXML xml >>= return . M.lookup "DialogInitAnon")
     -- , testCase "DialogInitAnonRes" $
     --   assertEq
@@ -513,10 +447,21 @@ fillMsgTests =
     -- Messages with SFs
     -- Setting binary types
     -- How does signing and encryption work? (I'll only do Pin-Tan for now)
-    -- First I need to validate the xml-message extraction functions and re-thing
-    -- the types there
     ]
   ]
+
+fullMsgGenTests :: [TF.Test]
+fullMsgGenTests =
+  [ testGroup "Test full generation of HBCI messages"
+    [ testCase "Empty message" $
+      assertEq (Right "") (testF (MSG False False []) M.empty)
+    , testCase "DialogInitAnon" $
+      assertEq (Left "Required key 'MsgHead.SegHead.seq' missing in userVals")
+      (testF dialogInitAnon M.empty)
+    ]
+  ]
+  where
+    testF msg vals = fillMsg vals msg >>= return . gen
 
 standaloneTests :: [TF.Test]
 standaloneTests = concat [ parserTests
@@ -530,6 +475,7 @@ standaloneTests = concat [ parserTests
                          , fillMsgTests
                          , elemToSFTests
                          , elemToMSGTests
+                         , fullMsgGenTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]
@@ -539,3 +485,75 @@ main :: IO ()
 main = do
   hbciPlus <- getXml "resources/hbci-plus.xml"
   defaultMain (standaloneTests ++ map ($ hbciPlus) xmlTests)
+
+dialogInitAnon :: MSG
+dialogInitAnon =
+  (MSG {msgRequiresSignature = False,
+                   msgRequiresEncryption = False,
+                   msgItems = [SF {sfMinNum = 1,
+                                   sfMaxNum = Just 1,
+                                   sfItems = [SEG {segName = "MsgHead",
+                                                   needsRequestTag = False,
+                                                   segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                             degMinNum = 1,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEval (DEStr "HNHBK")
+                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                        ,DEval (DEStr "3")
+                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                              ,DEItem (DEdef {deName = "msgsize", deType = Dig, deMinSize = 12, deMaxSize = Just 12, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                              ,DEItem (DEval (DEStr "220"))
+                                                              ,DEItem (DEval (DEStr "0"))
+                                                              ,DEItem (DEval (DEStr "1"))
+                                                              ,DEGItem (DEG {degName = "",
+                                                                             degMinNum = 0,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEval (DEStr "0")
+                                                                                        ,DEval (DEStr "1")]})]}]}
+                              ,SF {sfMinNum = 1,
+                                   sfMaxNum = Just 1,
+                                   sfItems = [SEG {segName = "Idn",
+                                                   needsRequestTag = False,
+                                                   segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                             degMinNum = 1,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEval (DEStr "HKIDN")
+                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                        ,DEval (DEStr "2")
+                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                              ,DEGItem (DEG {degName = "",
+                                                                             degMinNum = 1,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEdef {deName = "country", deType = Ctr, deMinSize = 0, deMaxSize = Nothing, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                        ,DEdef {deName = "blz", deType = AN, deMinSize = 0, deMaxSize = Just 30, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                              ,DEItem (DEval (DEStr "9999999999"))
+                                                              ,DEItem (DEval (DEStr "0"))
+                                                              ,DEItem (DEval (DEStr "0"))]}]}
+                              ,SF {sfMinNum = 1,
+                                   sfMaxNum = Just 1,
+                                   sfItems = [SEG {segName = "",
+                                                   needsRequestTag = False,
+                                                   segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                             degMinNum = 1,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEval (DEStr "HKVVB")
+                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                        ,DEval (DEStr "2")
+                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                              ,DEItem (DEdef {deName = "BPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                              ,DEItem (DEdef {deName = "UPD", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                              ,DEItem (DEdef {deName = "lang", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Just ["0","1","2","3"]})
+                                                              ,DEItem (DEdef {deName = "prodName", deType = AN, deMinSize = 0, deMaxSize = Just 25, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})
+                                                              ,DEItem (DEdef {deName = "prodVersion", deType = AN, deMinSize = 0, deMaxSize = Just 5, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing})]}]}
+                              ,SF {sfMinNum = 1,
+                                   sfMaxNum = Just 1,
+                                   sfItems = [SEG {segName = "MsgTail",
+                                                   needsRequestTag = False,
+                                                   segItems = [DEGItem (DEG {degName = "SegHead",
+                                                                             degMinNum = 1,
+                                                                             degMaxNum = Just 1,
+                                                                             degItems = [DEval (DEStr "HNHBS")
+                                                                                        ,DEdef {deName = "seq", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 1, deMaxNum = Nothing, deValids = Nothing}
+                                                                                        ,DEval (DEStr "1")
+                                                                                        ,DEdef {deName = "ref", deType = Num, deMinSize = 0, deMaxSize = Just 3, deMinNum = 0, deMaxNum = Nothing, deValids = Nothing}]})
+                                                              ,DEItem (DEval (DEStr "1"))]}]}]})
