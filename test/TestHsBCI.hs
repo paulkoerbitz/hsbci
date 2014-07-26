@@ -409,43 +409,49 @@ fillDeTests =
 fillMsgTests :: [TF.Test]
 fillMsgTests =
   [ testGroup "Simple message examples"
-    [ testCase "Empty message" $
-      assertEq (Right [])
-               (fillMsg M.empty (MSG False False []))
-    , testCase "One item message -- success" $
-      assertEq (Right [[[DEStr "HNHBK"]]])
+    [ testCase "One item message -- success" $
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("seg1.de1", "HNHBK")])
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
-    , testCase "One item message -- failure" $
+                (M.fromList [("MsgHead.de1", "HNHBK")])
+                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
+                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+    , testCase "One item message -- missing item" $
       assertEq (Left "Required key 'seg1.de1' missing in userVals")
                (fillMsg
                 M.empty
                 (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
-    , testCase "One item message -- value already set -- 1" $
-      assertEq (Right [[[DEStr "HNHBK"]]])
+    , testCase "One item message -- missing msgsize field" $
+      assertEq (Left "Didn't find expected field message size")
+               (fillMsg
+                (M.fromList [("seg1.de1", "abcxyz")])
+                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+    , testCase "One item message -- value already set 1" $
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
                 M.empty
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEval (DEStr "HNHBK"))]]]))
-    , testCase "One item message -- value already set -- 2" $
-      assertEq (Right [[[DEStr "HNHBK"]]])
+                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEval (DEStr "HNHBK"))
+                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+    , testCase "One item message -- value already set 2" $
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("seg1.de1", "SomethingOrOther")])
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEval (DEStr "HNHBK"))]]]))
+                (M.fromList [("MsgHead.de1", "SomethingOrOther")])
+                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEval (DEStr "HNHBK"))
+                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- value outside of valids" $
-      assertEq (Left "Value '3' for key 'seg1.de1' not in valid values '[\"1\",\"2\"]'")
+      assertEq (Left "Value '3' for key 'MsgHead.de1' not in valid values '[\"1\",\"2\"]'")
                (fillMsg
-                (M.fromList [("seg1.de1", "3")])
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
+                (M.fromList [("MsgHead.de1", "3")])
+                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
     , testCase "Message with one DEG with two DEs" $
-      assertEq (Right [[[DEStr "99", DEStr "77"]]])
+      assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("seg1.deg1.de1", "99"), ("seg1.deg1.de2", "77" )])
+                (M.fromList [("MsgHead.deg1.de1", "99"), ("MsgHead.deg1.de2", "77" )])
                 (MSG False False
                  [SF 0 Nothing
-                  [SEG "seg1" False
+                  [SEG "MsgHead" False
                    [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 1 Nothing 1 (Just 1) Nothing
-                                                  ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])]]]))
+                                                  ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])
+                   ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
     -- What else to test?
     -- Validation of minsize, maxsize, minnum, maxnum
     -- Validation of DETypes
@@ -458,13 +464,11 @@ fillMsgTests =
 fullMsgGenTests :: [TF.Test]
 fullMsgGenTests =
   [ testGroup "Test full generation of HBCI messages"
-    [ testCase "Empty message" $
-      assertEq (Right "") (testF (MSG False False []) M.empty)
-    , testCase "DialogInitAnon" $
+    [ testCase "DialogInitAnon" $
       let vals = M.fromList [("Idn.country", "0"), ("BPD", "0"), ("UPD", "0"), ("lang", "0")
                             ,("prodName", "HsBCI"), ("prodVersion", "0.1.0")]
       in assertEq
-         (Right "HNHBK:1:3:+000000000000+220+0+1+0:1'HKIDN:2:2:+0:+9999999999+0+0'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HNHBS:4:1:+1'")
+         (Right "HNHBK:1:3:+000000000107+220+0+1+0:1'HKIDN:2:2:+0:+9999999999+0+0'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HNHBS:4:1:+1'")
          (testF dialogInitAnon vals)
     ]
   ]

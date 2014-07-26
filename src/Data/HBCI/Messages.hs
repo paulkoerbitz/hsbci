@@ -37,17 +37,15 @@ data FillState = MkFillState { msgSize :: !Int, msgSeq :: !Int }
 
 type FillRes = StateT FillState (Either T.Text)
 
--- FIXME: correct length for binary
 updateSize :: DEValue -> FillRes DEValue
 updateSize (DEStr v)    = modify (\x -> x { msgSize = msgSize x + T.length v }) >> lift (Right (DEStr v))
-updateSize (DEBinary b) = modify (\x -> x { msgSize = msgSize x + BS.length b + 2 }) >> lift (Right (DEBinary b))
+updateSize (DEBinary b) = let lengthBody   = BS.length b
+                              lengthHeader = 2 + length (show lengthBody)
+                          in modify (\x -> x { msgSize = msgSize x + lengthBody + lengthHeader }) >> lift (Right (DEBinary b))
 
--- FIXME: the 'fill' functions should operate on a state monad which
---        maintains the 'size' of the message and the seq of the current
---        segment. fillDe should recognize segments and fill in the number
 fillDe :: M.Map T.Text T.Text -> T.Text -> DE -> FillRes DEValue
-fillDe _        _      (DEval v)                     = return $! v
-fillDe userVals prefix (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
+fillDe _        _      (DEval v)                                = updateSize $! v
+fillDe _        _      (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
   MkFillState _ seqNum  <- get
   updateSize $! DEStr $! T.pack $! show seqNum
 fillDe userVals prefix (DEdef deNm deTp minSz maxSz minNum _ valids) =
@@ -64,7 +62,8 @@ fillDe userVals prefix (DEdef deNm deTp minSz maxSz minNum _ valids) =
 fillSeg :: M.Map T.Text T.Text -> SEG -> FillRes SEGValue
 fillSeg userVals (SEG segNm _ items) = do
   res <- traverse (fillSegItem userVals segNm) items
-  modify (\x -> x { msgSeq = msgSeq x + 1 })
+  -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
+  modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
   return res
 
 fillSegItem :: M.Map T.Text T.Text -> T.Text -> SEGItem -> FillRes DEGValue
@@ -73,13 +72,20 @@ fillSegItem userVals = go
     go prefix (DEItem de)                        = (:[]) <$> fillDe userVals prefix de
     go prefix (DEGItem (DEG degnm _ _ degitems)) =
       let newPrefix = if T.null degnm then prefix else prefix <> "." <> degnm
-      in traverse (fillDe userVals newPrefix) degitems
+          n         = max (length degitems - 1) 0 -- number of : between DEs
+      in do
+        modify (\x -> x { msgSize = msgSize x + n })
+        traverse (fillDe userVals newPrefix) degitems
 
 fillMsg :: M.Map T.Text T.Text -> MSG -> Either T.Text MSGValue
 fillMsg userVals (MSG _reqSig _reqEnc items) =
-  evalStateT (concat <$> traverse fillSf items) (MkFillState 0 1)
+  evalStateT ((concat <$> traverse fillSf items) >>= replaceMsgSize) (MkFillState 0 1)
   where
-    -- FIXME: Overwrite this once the full message has been generated
+    replaceMsgSize ((head:[DEStr "000000000000"]:xs):ys) = do
+      MkFillState sz _ <- get
+      return ((head:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
+    replaceMsgSize _ = lift $! Left "Didn't find expected field message size"
+
     userVals' = M.insert "MsgHead.msgsize" "000000000000" userVals
 
     fillSf :: SF -> FillRes MSGValue
