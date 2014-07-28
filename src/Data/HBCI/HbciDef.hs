@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 module Data.HBCI.HbciDef where
 
+import           Control.Arrow (second)
 import qualified Data.ByteString as BS
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import           Data.Traversable (traverse)
 import           Data.Maybe (listToMaybe)
 import           Data.Monoid ((<>))
@@ -243,3 +245,15 @@ getMSGfromXML xml = do
   segs <- getSEGs degs xml
   sfs  <- getSFs segs xml
   getMSGs segs sfs xml
+
+parseBankPropsLine :: BS.ByteString -> Either T.Text (T.Text, BankProperties)
+parseBankPropsLine line = do
+  when (T.length blz /= 8) $ Left ("BLZ '" <> blz <> "' has wrong format")
+  when (length props /= 9) $ Left ("Properties have the wrong format")
+  let (name:city:bic:_:hbciUrl:pinTanUrl:hbciVersion:pinTanVersion:_) = props
+  return (blz, BankProperties name city bic hbciUrl pinTanUrl hbciVersion pinTanVersion)
+  where
+    (blz, props) = second (T.split (== '|') . T.drop 1) $ T.break (== '=') $ E.decodeUtf8 line
+
+getBankPropsFromFile :: T.Text -> IO (M.Map T.Text BankProperties)
+getBankPropsFromFile _fname = undefined

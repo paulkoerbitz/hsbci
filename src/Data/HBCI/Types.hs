@@ -38,3 +38,12 @@ data SF = SF { sfMinNum :: Int, sfMaxNum :: Maybe Int, sfItems :: [SEG] }
 
 data MSG = MSG { msgRequiresSignature :: Bool, msgRequiresEncryption :: Bool, msgItems :: [SF] }
          deriving (Eq, Show)
+
+data BankProperties = BankProperties { bankName :: !T.Text
+                                     , bankCity :: !T.Text
+                                     , bankBic :: !T.Text
+                                     , bankHbciUrl :: !T.Text
+                                     , bankPinTanUrl :: !T.Text
+                                     , bankHbciVersion :: !T.Text
+                                     , bankPinTanVersion :: !T.Text
+                                     } deriving (Eq, Show)

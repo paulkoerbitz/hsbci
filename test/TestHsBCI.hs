@@ -475,6 +475,30 @@ fullMsgGenTests =
   where
     testF msg vals = fillMsg vals msg >>= return . gen
 
+parseBankPropsLineTests :: [TF.Test]
+parseBankPropsLineTests =
+  [ testGroup "Test parseBankPropsLine function"
+    [ testCase "BLZ too short" $
+      assertEq (Left "BLZ '1234567' has wrong format")
+      (parseBankPropsLine "1234567=a|b|c")
+    , testCase "Not enough properties" $
+      assertEq (Left "Properties have the wrong format")
+      (parseBankPropsLine "12345678=a|b|c|d|e|f|g|")
+    , testCase "Too many enough properties" $
+      assertEq (Left "Properties have the wrong format")
+      (parseBankPropsLine "12345678=a|b|c|d|e|f|g|h|i|")
+    , testCase "Success" $
+      assertEq (Right ("12345678",  BankProperties "Raiffeisenbank Sonnenwald"
+                                                   "Auerbach, Niederbay"
+                                                   "GENODEF1AUS"
+                                                   "hbci01.fiducia.de"
+                                                   "https://hbci11.fiducia.de/cgi-bin/hbciservlet"
+                                                   "300"
+                                                   "300"))
+      (parseBankPropsLine "12345678=Raiffeisenbank Sonnenwald|Auerbach, Niederbay|GENODEF1AUS|88|hbci01.fiducia.de|https://hbci11.fiducia.de/cgi-bin/hbciservlet|300|300|")
+    ]
+  ]
+
 standaloneTests :: [TF.Test]
 standaloneTests = concat [ parserTests
                          , elemToDETests
@@ -488,6 +512,7 @@ standaloneTests = concat [ parserTests
                          , elemToSFTests
                          , elemToMSGTests
                          , fullMsgGenTests
+                         , parseBankPropsLineTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]
