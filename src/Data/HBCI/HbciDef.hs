@@ -3,6 +3,7 @@ module Data.HBCI.HbciDef where
 
 import           Control.Arrow (second)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -255,5 +256,7 @@ parseBankPropsLine line = do
   where
     (blz, props) = second (T.split (== '|') . T.drop 1) $ T.break (== '=') $ E.decodeUtf8 line
 
-getBankPropsFromFile :: T.Text -> IO (M.Map T.Text BankProperties)
-getBankPropsFromFile _fname = undefined
+getBankPropsFromFile :: FilePath -> IO (Either T.Text (M.Map T.Text BankProperties))
+getBankPropsFromFile fname = do
+  ctnt <- BS.readFile fname
+  return (M.fromList <$>  mapM parseBankPropsLine (filter (\s -> BS.length s > 0) $ C8.split '\n' ctnt))
