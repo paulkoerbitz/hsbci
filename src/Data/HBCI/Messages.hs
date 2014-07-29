@@ -90,3 +90,6 @@ fillMsg userVals (MSG _reqSig _reqEnc items) =
 
     fillSf :: SF -> FillRes MSGValue
     fillSf (SF _ _ items) = traverse (fillSeg userVals') items
+
+validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text T.Text)
+validateAndExtract = undefined
