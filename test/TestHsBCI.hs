@@ -499,6 +499,16 @@ parseBankPropsLineTests =
     ]
   ]
 
+validateAndExtractTests :: [TF.Test]
+validateAndExtractTests =
+  [ testGroup "Test validateAndExtract function"
+    [ testCase "Extract from generatd 'DialogInitAnon'" $
+      let vals = M.fromList [("Idn.country", "0"), ("BPD", "0"), ("UPD", "0"), ("lang", "0")
+                            ,("prodName", "HsBCI"), ("prodVersion", "0.1.0")]
+      in assertEq (Right vals) (fillMsg vals dialogInitAnon >>= validateAndExtract dialogInitAnon)
+    ]
+  ]
+
 standaloneTests :: [TF.Test]
 standaloneTests = concat [ parserTests
                          , elemToDETests
@@ -513,6 +523,7 @@ standaloneTests = concat [ parserTests
                          , elemToMSGTests
                          , fullMsgGenTests
                          , parseBankPropsLineTests
+                         , validateAndExtractTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]
