@@ -499,6 +499,27 @@ parseBankPropsLineTests =
     ]
   ]
 
+validateAndExtractSegTests :: [TF.Test]
+validateAndExtractSegTests =
+  [ testGroup "Test validateAndExtractSeg function"
+    [ testCase "SF with minnum 1 and empty MSGVal gives error" $
+      assertEq (Left "Required SEG 'MsgHead' not found") $
+      validateAndExtractSeg (sfOpt { sfMinNum = 1}) []
+    , testCase "SF with minnum 0 and empty MSGVal discarded" $
+      assertEq (Right ([], M.empty)) $
+      validateAndExtractSeg sfOpt []
+    -- , testCase "Single SF with minnum 0 discarded if not matched" $
+    --   assertEq (Right ([[[DEStr "HNHBK2"]]], M.empty)) $
+    --   validateAndExtractSeg sfOpt [[[DEStr "HNHBK2"]]]
+    ]
+  ]
+  where
+    sfOpt = SF {sfMinNum = 0,
+                sfMaxNum = Just 1,
+                sfItems = [SEG {segName = "MsgHead",
+                                needsRequestTag = False,
+                                segItems = [DEItem (DEval (DEStr "HNHBK"))]}]}
+
 validateAndExtractTests :: [TF.Test]
 validateAndExtractTests =
   [ testGroup "Test validateAndExtract function"
@@ -523,7 +544,8 @@ standaloneTests = concat [ parserTests
                          , elemToMSGTests
                          , fullMsgGenTests
                          , parseBankPropsLineTests
-                         , validateAndExtractTests
+                         , validateAndExtractSegTests
+                         -- , validateAndExtractTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]

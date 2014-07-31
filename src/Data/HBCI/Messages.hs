@@ -91,5 +91,34 @@ fillMsg userVals (MSG _reqSig _reqEnc items) =
     fillSf :: SF -> FillRes MSGValue
     fillSf (SF _ _ items) = traverse (fillSeg userVals') items
 
+validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
+validateAndExtractSeg (SF minnum _ (seg:_)) [] =
+  if minnum > 0 then Left $ "Required SEG '" <> segName seg <> "' not found"
+  else Right ([], M.empty)
+
 validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text T.Text)
-validateAndExtract = undefined
+validateAndExtract (MSG _ _ sfs) msg = M.fromList <$> go [] msg sfs
+  where
+    -- So the message has one level less than the SFs.
+    -- However, for each SF we might already consume SEGs
+    -- Then there are optional sfs and segvals.
+    -- So sometimes I'll have to throw away a definition
+    -- So this is fundamentally an applicative problem:
+    -- the results for the current analysis don't depend on
+    -- the results of the previous step, they just depend
+    -- on the side effects. As such I should be able to use
+    -- something applicatively
+    -- But how do I build this applicative? With monads I
+    -- can take for example the state monad and use that to
+    -- update state - with applicative I could imagine that the
+    -- respective data structures already have been there.
+    --
+    -- How can I get started? The result is Either T.Text (M.Map T.Text T.Text)
+    -- one way to think about it could be bottom up as well:
+    -- Every SEG has an identifier, so I can check if this
+    -- identifier matches or not and move on accordingly
+    go vals segVals sfs               = undefined -- goSeg vals sfs segVals >>= \val -> go (val:vals) sfs segVals
+    go vals []      []                = Right vals
+    go _    _       _                 = Left "Invalid message"
+
+    goSeg vals _ _                    = Left "unimplemented"
