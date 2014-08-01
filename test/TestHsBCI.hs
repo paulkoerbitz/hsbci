@@ -508,9 +508,9 @@ validateAndExtractSegTests =
     , testCase "SF with minnum 0 and empty MSGVal discarded" $
       assertEq (Right ([], M.empty)) $
       validateAndExtractSeg sfOpt []
-    -- , testCase "Single SF with minnum 0 discarded if not matched" $
-    --   assertEq (Right ([[[DEStr "HNHBK2"]]], M.empty)) $
-    --   validateAndExtractSeg sfOpt [[[DEStr "HNHBK2"]]]
+    , testCase "Single SF with minnum 0 discarded if not matched" $
+      assertEq (Right ([[[DEStr "HNHBK2"]]], M.empty)) $
+      validateAndExtractSeg sfOpt [[[DEStr "HNHBK2"]]]
     ]
   ]
   where
@@ -518,7 +518,7 @@ validateAndExtractSegTests =
                 sfMaxNum = Just 1,
                 sfItems = [SEG {segName = "MsgHead",
                                 needsRequestTag = False,
-                                segItems = [DEItem (DEval (DEStr "HNHBK"))]}]}
+                                segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK"))])]}]}
 
 validateAndExtractTests :: [TF.Test]
 validateAndExtractTests =
