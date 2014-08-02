@@ -99,22 +99,39 @@ getValHead ((DEStr hd:_):_) = Right hd
 getValHead _                = Left "Required element MsgHead not found"
 
 getDefHead :: SEG -> Either T.Text T.Text
-getDefHead (SEG "MsgHead" _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_)):_)) = Right hd
-getDefHead _                                                              = Left "Required element MsgHead not found"
+getDefHead (SEG _ _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_)):_)) = Right hd
+getDefHead _                                                      = Left "getDefHead: head not found"
 
 checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
 checkMinnum minnum segNm vals = if minnum > 0
                                 then Left $ "Required SEG '" <> segNm <> "' not found"
                                 else Right (vals, M.empty)
 
+-- data ExtractErr = ExtractNotFound T.Text
+--                 | ExtractError T.Text
+-- 
+-- validateAndExtractSeg :: SEG -> SEGValue -> Either ExtractErr (SEGValue, M.Map T.Text T.Text)
+-- validateAndExtractSeg = undefined
+-- 
+-- validateAndExtractSf :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
+-- validateAndExtractSf (SF minnum _ (segDef:segDefs)) (segVal:segVals) =
+--   case validateAndExtractSeg segDef segVal of
+--     Left (ExtractError err) -> Left err
+--     Left (ExtractNotFound err) -> if minnum > 0 then Left err else Right ((segVal:segVals), M.empty)
+--     Right (val, map) -> undefined -- go on
+
+
 validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
-validateAndExtractSeg (SF minnum _ (seg:_)) [] = checkMinnum minnum (segName seg) []
-validateAndExtractSeg (SF minnum _ (seg:_)) (segVal:segVals) = do
+validateAndExtractSeg (SF minnum _ (seg:_))    [] = checkMinnum minnum (segName seg) []
+validateAndExtractSeg (SF minnum _ (seg:segs)) (segVal:segVals) = do
   valHd <- getValHead segVal
-  trace (show seg) (return ())
   defHd <- getDefHead seg
+  -- trace (show $ valHd <> ", " <> defHd) (return ())
   if valHd == defHd
-    then undefined -- FIXME: proceed with extraction
+    then -- FIXME: How do I do this extraction thing? Basically I need to simultaneously
+         -- walk through both structures and extract the values as I go. Things that are
+         -- filled in in SF, SEG or whatever should match up, things that are not defined
+         -- must be optional and can be left off.
     else checkMinnum minnum (segName seg) (segVal:segVals)
 
 validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text T.Text)
