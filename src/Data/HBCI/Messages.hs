@@ -109,10 +109,10 @@ checkMinnum minnum segNm vals = if minnum > 0
 
 -- data ExtractErr = ExtractNotFound T.Text
 --                 | ExtractError T.Text
--- 
+--
 -- validateAndExtractSeg :: SEG -> SEGValue -> Either ExtractErr (SEGValue, M.Map T.Text T.Text)
 -- validateAndExtractSeg = undefined
--- 
+--
 -- validateAndExtractSf :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
 -- validateAndExtractSf (SF minnum _ (segDef:segDefs)) (segVal:segVals) =
 --   case validateAndExtractSeg segDef segVal of
@@ -128,7 +128,8 @@ validateAndExtractSeg (SF minnum _ (seg:segs)) (segVal:segVals) = do
   defHd <- getDefHead seg
   -- trace (show $ valHd <> ", " <> defHd) (return ())
   if valHd == defHd
-    then -- FIXME: How do I do this extraction thing? Basically I need to simultaneously
+    then undefined
+         -- FIXME: How do I do this extraction thing? Basically I need to simultaneously
          -- walk through both structures and extract the values as I go. Things that are
          -- filled in in SF, SEG or whatever should match up, things that are not defined
          -- must be optional and can be left off.
