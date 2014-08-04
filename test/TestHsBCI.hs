@@ -506,13 +506,13 @@ validateAndExtractSegTests =
       assertEq (Left "Required SEG 'MsgHead' not found") $
       validateAndExtractSeg (sf0 { sfMinNum = 1}) []
     , testCase "SF with minnum 0 and empty MSGVal discarded" $
-      assertEq (Right ([], M.empty)) $
+      assertEq (Right ([], [])) $
       validateAndExtractSeg sf0 []
     , testCase "Single SF with minnum 0 discarded if not matched" $
-      assertEq (Right ([[[DEStr "HNHBK2"]]], M.empty)) $
+      assertEq (Right ([[[DEStr "HNHBK2"]]], [])) $
       validateAndExtractSeg sf0 [[[DEStr "HNHBK2"]]]
     , testCase "Extract some entries from a single entry" $
-      assertEq (Right ([], M.fromList [("Seg1.de1", "ValToExtract")])) $
+      assertEq (Right ([], [("Seg1.de1", DEStr "ValToExtract")])) $
       validateAndExtractSeg sf1 [[[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]]
     ]
   ]

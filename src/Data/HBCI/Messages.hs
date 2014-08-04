@@ -103,28 +103,21 @@ getDefHead :: SEG -> Either T.Text T.Text
 getDefHead (SEG _ _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_)):_)) = Right hd
 getDefHead _                                                      = Left "getDefHead: head not found"
 
-checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, [(T.Text,T.Text)])
+checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, [a])
 checkMinnum minnum segNm vals = if minnum > 0
                                 then Left $ "Required SEG '" <> segNm <> "' not found"
                                 else Right (vals, [])
 
--- data ExtractErr = ExtractNotFound T.Text
---                 | ExtractError T.Text
---
--- validateAndExtractSeg :: SEG -> SEGValue -> Either ExtractErr (SEGValue, M.Map T.Text T.Text)
--- validateAndExtractSeg = undefined
---
--- validateAndExtractSf :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
--- validateAndExtractSf (SF minnum _ (segDef:segDefs)) (segVal:segVals) =
---   case validateAndExtractSeg segDef segVal of
---     Left (ExtractError err) -> Left err
---     Left (ExtractNotFound err) -> if minnum > 0 then Left err else Right ((segVal:segVals), M.empty)
---     Right (val, map) -> undefined -- go on
+validateAndExtractSegItem :: T.Text -> SEGItem -> DEGValue -> Either T.Text [(T.Text, DEValue)]
+validateAndExtractSegItem _      (DEItem (DEval deVal)) [deVal'] | deVal == deVal' =
+  return []
+validateAndExtractSegItem prefix (DEItem (DEval deVal)) [deVal']                   =
+  Left $ "Unexpected value in segment " <> prefix <> ", expected '" <> T.pack (show deVal) <> "' but got '" <> T.pack (show deVal') <> "'"
+validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [deVal] =
+  return [(prefix <> "." <> nm, deVal)] -- FIXME: validate
 
-validateAndExtractSegItem :: SEGItem -> DEGValue -> Either T.Text [(T.Text, T.Text)]
-validateAndExtractSegItem = undefined
 
-validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, [(T.Text,T.Text)])
+validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, [(T.Text,DEValue)])
 validateAndExtractSeg (SF minnum _ (seg:_))    []   = checkMinnum minnum (segName seg) []
 validateAndExtractSeg (SF _      _ [])         vals = return (vals, [])
 validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
@@ -132,7 +125,8 @@ validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
   defHd <- getDefHead seg
   if valHd == defHd
     then let items = segItems seg
-         in do vals <- foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem si sv) [] $ zip items segVal
+             prefix = segName seg
+         in do vals <- foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
                (segVals', otherVals) <- validateAndExtractSeg (SF minnum maxnum segs) segVals
                return (segVals', vals ++ otherVals)
     else checkMinnum minnum (segName seg) (segVal:segVals)
