@@ -2,6 +2,7 @@
 module Data.HBCI.Messages where
 
 import           Control.Applicative ((<$>))
+import           Control.Monad (foldM)
 import           Control.Monad.State (StateT, evalStateT, get, modify)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
@@ -102,10 +103,10 @@ getDefHead :: SEG -> Either T.Text T.Text
 getDefHead (SEG _ _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_)):_)) = Right hd
 getDefHead _                                                      = Left "getDefHead: head not found"
 
-checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
+checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, [(T.Text,T.Text)])
 checkMinnum minnum segNm vals = if minnum > 0
                                 then Left $ "Required SEG '" <> segNm <> "' not found"
-                                else Right (vals, M.empty)
+                                else Right (vals, [])
 
 -- data ExtractErr = ExtractNotFound T.Text
 --                 | ExtractError T.Text
@@ -120,19 +121,20 @@ checkMinnum minnum segNm vals = if minnum > 0
 --     Left (ExtractNotFound err) -> if minnum > 0 then Left err else Right ((segVal:segVals), M.empty)
 --     Right (val, map) -> undefined -- go on
 
+validateAndExtractSegItem :: SEGItem -> DEGValue -> Either T.Text [(T.Text, T.Text)]
+validateAndExtractSegItem = undefined
 
-validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, M.Map T.Text T.Text)
-validateAndExtractSeg (SF minnum _ (seg:_))    [] = checkMinnum minnum (segName seg) []
-validateAndExtractSeg (SF minnum _ (seg:segs)) (segVal:segVals) = do
+validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, [(T.Text,T.Text)])
+validateAndExtractSeg (SF minnum _ (seg:_))    []   = checkMinnum minnum (segName seg) []
+validateAndExtractSeg (SF _      _ [])         vals = return (vals, [])
+validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
   valHd <- getValHead segVal
   defHd <- getDefHead seg
-  -- trace (show $ valHd <> ", " <> defHd) (return ())
   if valHd == defHd
-    then undefined
-         -- FIXME: How do I do this extraction thing? Basically I need to simultaneously
-         -- walk through both structures and extract the values as I go. Things that are
-         -- filled in in SF, SEG or whatever should match up, things that are not defined
-         -- must be optional and can be left off.
+    then let items = segItems seg
+         in do vals <- foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem si sv) [] $ zip items segVal
+               (segVals', otherVals) <- validateAndExtractSeg (SF minnum maxnum segs) segVals
+               return (segVals', vals ++ otherVals)
     else checkMinnum minnum (segName seg) (segVal:segVals)
 
 validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text T.Text)
