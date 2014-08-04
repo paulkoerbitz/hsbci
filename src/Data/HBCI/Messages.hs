@@ -115,6 +115,14 @@ validateAndExtractSegItem prefix (DEItem (DEval deVal)) [deVal']                
   Left $ "Unexpected value in segment " <> prefix <> ", expected '" <> T.pack (show deVal) <> "' but got '" <> T.pack (show deVal') <> "'"
 validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [deVal] =
   return [(prefix <> "." <> nm, deVal)] -- FIXME: validate
+validateAndExtractSegItem prefix (DEGItem (DEG degNm minNum maxNum des)) devals    =
+  let prefix' = prefix <> "." <> degNm
+      deitems = map DEItem des
+      devals' = map (:[]) devals
+      items   = zip deitems devals'
+      -- This is really a hack to use the above implementations - not very nice
+  in concat <$> mapM (uncurry $ validateAndExtractSegItem prefix') items
+validateAndExtractSegItem prefix _ _ = Left $ "Unexpected deval when trying to process segment '" <> prefix <> "'"
 
 
 validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, [(T.Text,DEValue)])

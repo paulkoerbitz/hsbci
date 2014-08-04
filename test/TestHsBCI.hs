@@ -512,7 +512,7 @@ validateAndExtractSegTests =
       assertEq (Right ([[[DEStr "HNHBK2"]]], [])) $
       validateAndExtractSeg sf0 [[[DEStr "HNHBK2"]]]
     , testCase "Extract some entries from a single entry" $
-      assertEq (Right ([], [("Seg1.de1", DEStr "ValToExtract")])) $
+      assertEq (Right ([],[("MsgHead.msgsize",DEStr "000000000123"),("MsgHead.SegHead.seq",DEStr "1")])) $
       validateAndExtractSeg sf1 [[[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]]
     ]
   ]
