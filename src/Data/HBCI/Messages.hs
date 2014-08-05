@@ -36,6 +36,11 @@ checkSize key tp minSz maxSz val = go tp minSz maxSz
                                                       " but provided value '" <> val <> "' has a length of " <> T.pack (show len))
     go _   _      _                            = Right val
 
+concatPrefix :: T.Text -> T.Text -> T.Text
+concatPrefix prefix suffix | T.null prefix = suffix
+concatPrefix prefix suffix | T.null suffix = prefix
+concatPrefix prefix suffix                 = prefix <> "." <> suffix
+
 data FillState = MkFillState { msgSize :: !Int, msgSeq :: !Int }
 
 type FillRes = StateT FillState (Either T.Text)
@@ -46,41 +51,42 @@ updateSize (DEBinary b) = let lengthBody   = BS.length b
                               lengthHeader = 2 + length (show lengthBody)
                           in modify (\x -> x { msgSize = msgSize x + lengthBody + lengthHeader }) >> lift (Right (DEBinary b))
 
-fillDe :: M.Map T.Text T.Text -> T.Text -> DE -> FillRes DEValue
+fillDe :: M.Map T.Text DEValue -> T.Text -> DE -> FillRes DEValue
 fillDe _        _      (DEval v)                                = updateSize $! v
 fillDe _        _      (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
   MkFillState _ seqNum  <- get
   updateSize $! DEStr $! T.pack $! show seqNum
 fillDe userVals prefix (DEdef deNm deTp minSz maxSz minNum _ valids) =
-  let key = if T.null prefix then deNm else prefix <> "." <> deNm
+  let key = concatPrefix prefix deNm
       mval = M.lookup key userVals
-  in case mval of
-    Nothing -> if minNum == 0 then return (DEStr "") else lift $ Left $ "Required key '" <> key <> "' missing in userVals"
-    (Just val) -> if not (isJust valids) || val `elem` (fromJust valids)
-                  then if isBinaryType deTp
-                       then return $! DEBinary $! TE.encodeUtf8 val -- FIXME should already receive bytestrings
-                       else (escape <$> lift (checkSize key deTp minSz maxSz val)) >>= updateSize . DEStr
-                  else lift $! Left $! "Value '" <> val <> "' for key '" <> key <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
+  in case (isBinaryType deTp, mval) of
+    (_, Nothing) -> if minNum == 0 then return (DEStr "") else lift $ Left $ "Required key '" <> key <> "' missing in userVals"
+    (True,  Just (DEBinary b)) -> return (DEBinary b)
+    (True,  Just _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must be binary"
+    (False, Just (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
+                                  then (escape <$> lift (checkSize key deTp minSz maxSz s)) >>= updateSize . DEStr
+                                  else lift $! Left $! "Value '" <> s <> "' for key '" <> key <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
 
-fillSeg :: M.Map T.Text T.Text -> SEG -> FillRes SEGValue
+
+fillSeg :: M.Map T.Text DEValue -> SEG -> FillRes SEGValue
 fillSeg userVals (SEG segNm _ items) = do
   res <- traverse (fillSegItem userVals segNm) items
   -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
   modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
   return res
 
-fillSegItem :: M.Map T.Text T.Text -> T.Text -> SEGItem -> FillRes DEGValue
+fillSegItem :: M.Map T.Text DEValue -> T.Text -> SEGItem -> FillRes DEGValue
 fillSegItem userVals = go
   where
     go prefix (DEItem de)                        = (:[]) <$> fillDe userVals prefix de
     go prefix (DEGItem (DEG degnm _ _ degitems)) =
-      let newPrefix = if T.null degnm then prefix else prefix <> "." <> degnm
+      let newPrefix = concatPrefix prefix degnm
           n         = max (length degitems - 1) 0 -- number of : between DEs
       in do
         modify (\x -> x { msgSize = msgSize x + n })
         traverse (fillDe userVals newPrefix) degitems
 
-fillMsg :: M.Map T.Text T.Text -> MSG -> Either T.Text MSGValue
+fillMsg :: M.Map T.Text DEValue -> MSG -> Either T.Text MSGValue
 fillMsg userVals (MSG _reqSig _reqEnc items) =
   evalStateT ((concat <$> traverse fillSf items) >>= replaceMsgSize) (MkFillState 0 1)
   where
@@ -89,7 +95,7 @@ fillMsg userVals (MSG _reqSig _reqEnc items) =
       return ((head:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
     replaceMsgSize _ = lift $! Left "Didn't find expected field message size"
 
-    userVals' = M.insert "MsgHead.msgsize" "000000000000" userVals
+    userVals' = M.insert "MsgHead.msgsize" (DEStr "000000000000") userVals
 
     fillSf :: SF -> FillRes MSGValue
     fillSf (SF _ _ items) = traverse (fillSeg userVals') items
@@ -114,13 +120,18 @@ validateAndExtractSegItem _      (DEItem (DEval deVal)) [deVal'] | deVal == deVa
 validateAndExtractSegItem prefix (DEItem (DEval deVal)) [deVal']                   =
   Left $ "Unexpected value in segment " <> prefix <> ", expected '" <> T.pack (show deVal) <> "' but got '" <> T.pack (show deVal') <> "'"
 validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [deVal] =
-  return [(prefix <> "." <> nm, deVal)] -- FIXME: validate
+  return [(concatPrefix prefix nm, deVal)] -- FIXME: validate
+validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [] =
+  let prefix' = concatPrefix prefix nm
+  in if minNum == 0 then return []
+     else if minSz == 0 then return [(prefix', DEStr "")]
+          else Left $ "Required DE '" <> prefix' <> "' not found during extraction"
 validateAndExtractSegItem prefix (DEGItem (DEG degNm minNum maxNum des)) devals    =
-  let prefix' = prefix <> "." <> degNm
+  -- This is really a hack to use the above implementations - not very nice
+  let prefix' = concatPrefix prefix degNm
       deitems = map DEItem des
       devals' = map (:[]) devals
       items   = zip deitems devals'
-      -- This is really a hack to use the above implementations - not very nice
   in concat <$> mapM (uncurry $ validateAndExtractSegItem prefix') items
 validateAndExtractSegItem prefix _ _ = Left $ "Unexpected deval when trying to process segment '" <> prefix <> "'"
 
@@ -139,29 +150,11 @@ validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
                return (segVals', vals ++ otherVals)
     else checkMinnum minnum (segName seg) (segVal:segVals)
 
-validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text T.Text)
-validateAndExtract (MSG _ _ sfs) msg = M.fromList <$> go [] msg sfs
+validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text DEValue)
+validateAndExtract (MSG _ _ [])  msgV@(_:_) = Left $ "Could not fully process message: " <> T.pack (show msgV)
+validateAndExtract (MSG _ _ sfs) msgV       =
+  M.fromList . snd <$> foldM f (msgV, []) sfs
   where
-    -- So the message has one level less than the SFs.
-    -- However, for each SF we might already consume SEGs
-    -- Then there are optional sfs and segvals.
-    -- So sometimes I'll have to throw away a definition
-    -- So this is fundamentally an applicative problem:
-    -- the results for the current analysis don't depend on
-    -- the results of the previous step, they just depend
-    -- on the side effects. As such I should be able to use
-    -- something applicatively
-    -- But how do I build this applicative? With monads I
-    -- can take for example the state monad and use that to
-    -- update state - with applicative I could imagine that the
-    -- respective data structures already have been there.
-    --
-    -- How can I get started? The result is Either T.Text (M.Map T.Text T.Text)
-    -- one way to think about it could be bottom up as well:
-    -- Every SEG has an identifier, so I can check if this
-    -- identifier matches or not and move on accordingly
-    go vals segVals sfs               = undefined -- goSeg vals sfs segVals >>= \val -> go (val:vals) sfs segVals
-    go vals []      []                = Right vals
-    go _    _       _                 = Left "Invalid message"
-
-    goSeg vals _ _                    = Left "unimplemented"
+    f (rest, vals) sf = do
+      (rest', vals') <- validateAndExtractSeg sf rest
+      return (rest', vals' ++ vals)

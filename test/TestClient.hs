@@ -16,13 +16,13 @@ import           Data.HBCI.Messages
 import           Data.HBCI.Gen
 import           Data.HBCI.Parser
 
-msgVals :: M.Map T.Text T.Text
-msgVals = M.fromList [("Idn.country", "280")
-                     ,("BPD", "0")
-                     ,("UPD", "0")
-                     ,("lang", "0")
-                     ,("prodName", "HsBCI")
-                     ,("prodVersion", "0.1")]
+msgVals :: M.Map T.Text DEValue
+msgVals = M.fromList [("Idn.country", DEStr "280")
+                     ,("BPD", DEStr "0")
+                     ,("UPD", DEStr "0")
+                     ,("lang", DEStr "0")
+                     ,("prodName", DEStr "HsBCI")
+                     ,("prodVersion", DEStr "0.1")]
 
 main :: IO ()
 main = do
@@ -35,7 +35,7 @@ main = do
     Left err -> TIO.putStrLn err
     Right defs -> do
       dialogInitAnonDef <- maybe (putStrLn "Error: Can't find 'DialogInitAnon'" >> exitFailure) return (M.lookup "DialogInitAnon" defs)
-      let msgVals' = M.insert "Idn.blz" blz msgVals
+      let msgVals' = M.insert "Idn.blz" (DEStr blz) msgVals
           msg' = gen <$> fillMsg msgVals' dialogInitAnonDef
       case msg' of
         Left err -> TIO.putStrLn ("Error: " <> err) >> exitFailure
