@@ -1,16 +1,17 @@
 { haskellPackages ? (import <nixpkgs> {}).haskellPackages }:
 let
-  inherit (haskellPackages) 
-    cabal 
-    httpConduit 
-    HUnit 
-    mtl 
-    testFramework 
+  inherit (haskellPackages)
+    cabal
+    httpConduit
+    HUnit
+    mtl
+    testFramework
     testFrameworkHunit
-    testFrameworkQuickcheck2 
-    text 
+    testFrameworkQuickcheck2
+    text
     vector
-    xml;
+    xml
+    prettyShow;
 in
 
 cabal.mkDerivation (self: {
@@ -21,11 +22,11 @@ cabal.mkDerivation (self: {
   isExecutable = true;
   buildDepends = [
     httpConduit HUnit mtl testFramework testFrameworkHunit
-    testFrameworkQuickcheck2 text vector xml
+    testFrameworkQuickcheck2 text vector xml prettyShow
   ];
   testDepends = [
     HUnit mtl testFramework testFrameworkHunit testFrameworkQuickcheck2
-    text vector xml
+    text vector xml prettyShow
   ];
   meta = {
     description = "A fast, simple and modular HBCI library for Haskell";

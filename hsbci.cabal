@@ -24,7 +24,8 @@ library
                        vector >= 0.10,
                        text >= 0.11,
                        bytestring >= 0.10,
-                       xml >= 1.3
+                       xml >= 1.3,
+                       pretty >= 1.0
   default-language:    Haskell2010
 
 Test-Suite test-hsbci
@@ -40,6 +41,7 @@ Test-Suite test-hsbci
                        vector >= 0.10,
                        xml >= 1.3,
                        containers >= 0.5,
+                       pretty >= 1.0,
                        hsbci
   hs-source-dirs:      test
   ghc-options:         -Wall -fno-warn-name-shadowing
@@ -61,6 +63,7 @@ executable test-client
                        xml >= 1.3,
                        containers >= 0.5,
                        http-conduit >= 2.0,
+                       pretty >= 1.0,
                        hsbci
   ghc-options:         -Wall -fno-warn-name-shadowing -O -funbox-strict-fields
   default-language:    Haskell2010
