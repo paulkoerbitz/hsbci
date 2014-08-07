@@ -1,9 +1,10 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings, BangPatterns #-}
 module Data.HBCI.Types where
 
 -- import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
+import           Text.PrettyPrint
 
 -- FIXME: Make things strict where appropriate
 
@@ -47,3 +48,23 @@ data BankProperties = BankProperties { bankName :: !T.Text
                                      , bankHbciVersion :: !T.Text
                                      , bankPinTanVersion :: !T.Text
                                      } deriving (Eq, Show)
+
+class HbciPretty a where
+  toDoc :: a -> Doc
+
+  pprint :: a -> T.Text
+  pprint = T.pack . show . toDoc
+
+deLength :: DEValue -> Int
+deLength (DEStr v)    = T.length v
+deLength (DEBinary b) = let lengthBody   = BS.length b
+                            lengthHeader = 2 + length (show lengthBody)
+                        in lengthBody + lengthHeader
+
+instance HbciPretty DEValue where
+  toDoc (DEStr x)    = text $ T.unpack x
+  toDoc (DEBinary b) = text $ "@" ++ (show (deLength (DEBinary b))) ++ "@" ++ show b
+
+instance HbciPretty DE where
+  toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = empty
+  toDoc (DEval val)                                    = toDoc val
