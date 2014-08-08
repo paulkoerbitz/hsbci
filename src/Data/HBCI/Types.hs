@@ -66,5 +66,5 @@ instance HbciPretty DEValue where
   toDoc (DEBinary b) = text $ "@" ++ (show (deLength (DEBinary b))) ++ "@" ++ show b
 
 instance HbciPretty DE where
-  toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = empty
-  toDoc (DEval val)                                    = toDoc val
+  toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = (hsep $ map text $ ["{DEdef", T.unpack nm, show tp, show minSz, show maxSz, show minNum, show maxNum, show valids]) <> text "}"
+  toDoc (DEval val)                                    = hsep $ map text $ ["{DEval", show val]
