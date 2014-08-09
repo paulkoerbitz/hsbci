@@ -67,4 +67,7 @@ instance HbciPretty DEValue where
 
 instance HbciPretty DE where
   toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = (hsep $ map text $ ["{DEdef", T.unpack nm, show tp, show minSz, show maxSz, show minNum, show maxNum, show valids]) <> text "}"
-  toDoc (DEval val)                                    = hsep $ map text $ ["{DEval", show val]
+  toDoc (DEval val)                                    = (hsep $ map text $ ["{DEval", show val]) <> "}"
+
+instance HbciPretty DEG where
+  toDoc (DEG nm minNum maxNum des) = text "{DEG" <+> text (show nm) <+> int minNum <+> char '(' <> text (show maxNum) <> char ')' <+> nest 10 (vcat $ map toDoc des) <> "}"
