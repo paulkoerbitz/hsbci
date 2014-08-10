@@ -6,6 +6,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import           Text.PrettyPrint
 
+
 -- FIXME: Make things strict where appropriate
 
 data DEValue = DEStr !T.Text
@@ -61,13 +62,18 @@ deLength (DEBinary b) = let lengthBody   = BS.length b
                             lengthHeader = 2 + length (show lengthBody)
                         in lengthBody + lengthHeader
 
+instance Show a => HbciPretty (Maybe a) where
+  toDoc Nothing = text $ "Nothing"
+  toDoc (Just a) = text "(Just " <> text (show a) <> char ')'
+
 instance HbciPretty DEValue where
-  toDoc (DEStr x)    = text $ T.unpack x
-  toDoc (DEBinary b) = text $ "@" ++ (show (deLength (DEBinary b))) ++ "@" ++ show b
+  toDoc (DEStr x)    = text "(DEStr " <> text (T.unpack x) <> char ')'
+  toDoc (DEBinary b) = text "(DEBinary " <> text (show b) <> char ')'
 
 instance HbciPretty DE where
-  toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = (hsep $ map text $ ["{DEdef", T.unpack nm, show tp, show minSz, show maxSz, show minNum, show maxNum, show valids]) <> text "}"
-  toDoc (DEval val)                                    = (hsep $ map text $ ["{DEval", show val]) <> "}"
+  toDoc (DEdef nm tp minSz maxSz minNum maxNum valids) = (hsep $ map text $ ["(DEdef", show nm, show tp, show minSz]) <+> toDoc maxSz <+> text (show minNum) <+> toDoc maxNum <+> toDoc valids <> char ')'
+  toDoc (DEval val)                                    = text "(DEval " <> toDoc val <> char ')'
 
 instance HbciPretty DEG where
-  toDoc (DEG nm minNum maxNum des) = text "{DEG" <+> text (show nm) <+> int minNum <+> char '(' <> text (show maxNum) <> char ')' <+> nest 10 (vcat $ map toDoc des) <> "}"
+  toDoc (DEG nm minNum maxNum des) = text "(DEG" <+> text (show nm) <+> int minNum <+> char '(' <> text (show maxNum) <> char ')'
+                                     <+> nest 10 (char '[' <> (vcat $ punctuate (char ',') $ map toDoc des) <> char ']') <> ")"
