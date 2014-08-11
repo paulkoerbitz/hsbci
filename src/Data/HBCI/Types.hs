@@ -62,9 +62,15 @@ deLength (DEBinary b) = let lengthBody   = BS.length b
                             lengthHeader = 2 + length (show lengthBody)
                         in lengthBody + lengthHeader
 
-instance Show a => HbciPretty (Maybe a) where
+instance HbciPretty Int where
+  toDoc = text . show
+
+instance HbciPretty T.Text where
+  toDoc = text . show
+
+instance HbciPretty a => HbciPretty (Maybe a) where
   toDoc Nothing = text $ "Nothing"
-  toDoc (Just a) = text "(Just " <> text (show a) <> char ')'
+  toDoc (Just a) = text "(Just " <> (toDoc a) <> char ')'
 
 instance HbciPretty a => HbciPretty [a] where
   toDoc l = nest 0 (char '[' <> (vcat $ punctuate (char ',') $ map toDoc l) <> char ']')
