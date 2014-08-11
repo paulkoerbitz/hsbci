@@ -66,8 +66,11 @@ instance Show a => HbciPretty (Maybe a) where
   toDoc Nothing = text $ "Nothing"
   toDoc (Just a) = text "(Just " <> text (show a) <> char ')'
 
+instance HbciPretty a => HbciPretty [a] where
+  toDoc l = nest 0 (char '[' <> (vcat $ punctuate (char ',') $ map toDoc l) <> char ']')
+
 instance HbciPretty DEValue where
-  toDoc (DEStr x)    = text "(DEStr " <> text (T.unpack x) <> char ')'
+  toDoc (DEStr x)    = text "(DEStr " <> text (show x) <> char ')'
   toDoc (DEBinary b) = text "(DEBinary " <> text (show b) <> char ')'
 
 instance HbciPretty DE where
@@ -76,4 +79,17 @@ instance HbciPretty DE where
 
 instance HbciPretty DEG where
   toDoc (DEG nm minNum maxNum des) = text "(DEG" <+> text (show nm) <+> int minNum <+> char '(' <> text (show maxNum) <> char ')'
-                                     <+> nest 10 (char '[' <> (vcat $ punctuate (char ',') $ map toDoc des) <> char ']') <> ")"
+                                     <+> toDoc des <> ")"
+
+instance HbciPretty SEGItem where
+  toDoc (DEItem de) = text "(DEItem " <> toDoc de <> char ')'
+  toDoc (DEGItem deg) = text "(DEGItem " <> toDoc deg <> char ')'
+
+instance HbciPretty SEG where
+  toDoc (SEG nm tag items) = text "(SEG" <+> text (show nm) <+> text (show tag) <+> toDoc items <> char ')'
+
+instance HbciPretty SF where
+  toDoc (SF minNum maxNum items) = text "(SF" <+> text (show minNum) <+> toDoc maxNum <+> toDoc items <> char ')'
+
+instance HbciPretty MSG where
+  toDoc (MSG sig enc items) = text "(MSG" <+> text (show sig) <+> text (show enc) <+> toDoc items <> char ')'
