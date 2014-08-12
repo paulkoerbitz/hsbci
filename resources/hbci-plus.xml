@@ -8437,10 +8437,12 @@
       <SEG minnum="0" type="WPStammListPar1" />
       <SEG minnum="0" type="WPStammListPar2" />
       <SEG minnum="0" type="WPStammListPar3" />
+      <!--
       <SEG minnum="0" type="Template2DPar" />
       <SEG minnum="0" type="TemplateDPar" />
       <SEG minnum="0" type="Template2Par" />
       <SEG minnum="0" type="TemplatePar" />
+      -->
     </SFdef>
 
     <SFdef id="BPD">
