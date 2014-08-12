@@ -254,6 +254,14 @@ elemToSFTests =
       assertEq (Right ("sf01", [SF 5 (Just 7) [SEG "segName01" False []]]))
       (testF2 (M.fromList [("segId01", SEG "" False [])]) M.empty
        "<SFdef id=\"sf01\"><SEG type=\"segId01\" name=\"segName01\" minnum=\"5\" maxnum=\"7\"/></SFdef>")
+    , testCase "Two Segs in SF" $
+      assertEq (Right ("sf01", [SF 5 (Just 7) [SEG "segName01" False []], SF 1 (Just 1) [SEG "segName02" False []]]))
+      (testF2 (M.fromList [("segId01", SEG "" False []),("segId02", SEG "" False [])]) M.empty
+       "<SFdef id=\"sf01\"><SEG type=\"segId01\" name=\"segName01\" minnum=\"5\" maxnum=\"7\"/><SEG type=\"segId02\" name=\"segName02\"/></SFdef>")
+    , testCase "Single SF in SFdef" $
+      assertEq (Right ("sf01", [SF 0 Nothing [SEG "seg01" False [], SEG "seg02" False []]]))
+      (testF2 M.empty (M.fromList [("sfId01", [SF 0 Nothing [SEG "seg01" False [], SEG "seg02" False []]])])
+       "<SFdef id=\"sf01\"><SF type=\"sfId01\"/></SFdef>")
     ]
   ]
   where
