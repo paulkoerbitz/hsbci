@@ -192,7 +192,7 @@ elemToSFItem segs sfs (Element nm attrs _ line) = do
     updateMinMax outerMin outerMax (SF innerMin innerMax items) =
       let newMin = min innerMin outerMin
           newMax = max <$> innerMax <*> outerMax
-      in SF newMin newMax  items
+      in SF newMin newMax items
 
 elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text (T.Text, [SF])
 elemToSF segs sfs (Element nm attrs ctnt line) =  do
@@ -208,9 +208,9 @@ elemToMSG segs sfs (Element nm attrs ctnt line) = do
   let reqSig   = maybe True (/="1") $ findAttrByKey "dontsign" attrs
       reqCrypt = maybe True (/="1") $ findAttrByKey "dontcrypt" attrs
   items <- foldM f [] (onlyElems ctnt)
-  return $ (id_, MSG reqSig reqCrypt (reverse items))
+  return $ (id_, MSG reqSig reqCrypt items)
   where
-    f items e | qName (elName e) == "SF" || qName (elName e) == "SEG" = (++ items) <$> elemToSFItem segs sfs e
+    f items e | qName (elName e) == "SF" || qName (elName e) == "SEG" = (items ++) <$> elemToSFItem segs sfs e
     f items e | qName (elName e) == "value"                           = (\(x,y) -> map (setSFValue x y) items) <$> elemToValue e
     f _     e                                                         = err (elLine e) ("Unexpected element while processing MSGdef: " <> T.pack (qName (elName e)))
 
