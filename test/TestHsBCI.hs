@@ -526,8 +526,8 @@ validateAndExtractSegTests =
       assertEq (Right ([], [])) $
       validateAndExtractSeg sf0 []
     , testCase "Single SF with minnum 0 discarded if not matched" $
-      assertEq (Right ([[[DEStr "HNHBK2"]]], [])) $
-      validateAndExtractSeg sf0 [[[DEStr "HNHBK2"]]]
+      assertEq (Right ([[[DEStr "HNHBK2", DEStr "whatever", DEStr "1"]]], [])) $
+      validateAndExtractSeg sf0 [[[DEStr "HNHBK2", DEStr "whatever", DEStr "1"]]]
     , testCase "Extract some entries from a single entry" $
       assertEq (Right ([],[("MsgHead.msgsize",DEStr "000000000123"),("MsgHead.SegHead.seq",DEStr "1")])) $
       validateAndExtractSeg sf1 [[[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]]
@@ -538,7 +538,7 @@ validateAndExtractSegTests =
               sfMaxNum = Just 1,
               sfItems = [SEG {segName = "MsgHead",
                               needsRequestTag = False,
-                              segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK"))])]}]}
+                              segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK")), (DEval (DEStr "whatever")), (DEval (DEStr "1"))])]}]}
     sf1 = head $ msgItems $ dialogInitAnon
 
 validateAndExtractTests :: [TF.Test]
