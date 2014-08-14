@@ -151,6 +151,19 @@ validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
                return (segVals', vals ++ otherVals)
     else ("SEG not found: defHd=" <> show defHd <> ", valHd=" <> show valHd) `trace` checkMinnum minnum (segName seg) (segVal:segVals)
 
+validateAndExtractSeg' :: M.Map T.Text SEG -> SEGValue -> Either T.Text [(T.Text, DEValue)]
+validateAndExtractSeg' defs segVal = do
+  valHd <- getValHead segVal
+  case M.lookup (fst valHd <> "-" <> snd valHd) defs of
+    Nothing -> Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd
+    Just segDef -> let items = segItems segDef
+                       prefix = segName segDef
+                   in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
+
+findSEGs :: MSG -> M.Map T.Text SEG
+findSEGs = undefined
+
+
 validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text DEValue)
 validateAndExtract (MSG _ _ [])  msgV@(_:_) = Left $ "Could not fully process message: " <> T.pack (show msgV)
 validateAndExtract (MSG _ _ sfs) msgV       =
