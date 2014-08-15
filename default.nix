@@ -11,6 +11,7 @@ let
     text
     vector
     xml
+    base64Bytestring
     prettyShow;
 in
 
@@ -26,7 +27,7 @@ cabal.mkDerivation (self: {
   ];
   testDepends = [
     HUnit mtl testFramework testFrameworkHunit testFrameworkQuickcheck2
-    text vector xml prettyShow
+    text vector xml prettyShow base64Bytestring
   ];
   meta = {
     description = "A fast, simple and modular HBCI library for Haskell";

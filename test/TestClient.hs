@@ -3,6 +3,7 @@ module Main where
 
 import           Control.Applicative ((<$>))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Monoid ((<>))
 import qualified Data.Map as M
@@ -22,8 +23,8 @@ msgVals = M.fromList [("Idn.country", DEStr "280")
                      ,("BPD", DEStr "0")
                      ,("UPD", DEStr "0")
                      ,("lang", DEStr "0")
-                     ,("prodName", DEStr "HsBCI")
-                     ,("prodVersion", DEStr "0.1")]
+                     ,("prodName", DEStr "")
+                     ,("prodVersion", DEStr "")]
 
 main :: IO ()
 main = do
@@ -41,13 +42,13 @@ main = do
       case msg' of
         Left err -> TIO.putStrLn ("ERROR: " <> err) >> exitFailure
         Right msg -> do
-          request' <- parseUrl (T.unpack $ bankPinTanUrl props)
+          request' <- parseUrl $ T.unpack $ bankPinTanUrl props
           let request = request' { method = "POST"
                                  , requestHeaders = ("Content-Type", "application/octet-stream"): requestHeaders request'
-                                 , requestBody = RequestBodyBS msg
+                                 , requestBody = RequestBodyBS $ B64.encode msg
                                  }
           response <- withManager $ httpLbs request
-          case (M.lookup "DialogInitAnonRes" defs, parser $ BS.concat $ LBS.toChunks $ responseBody response) of
+          case (M.lookup "DialogInitAnonRes" defs, parser $ B64.decodeLenient $ BS.concat $ LBS.toChunks $ responseBody response) of
             (Nothing     , _ )             -> putStrLn "ERROR: Can't find 'DialogInitAnonRes' in definitions" >> exitFailure
             (Just _      , Left err)       -> TIO.putStrLn ("ERROR: Can't parse response: " <> err) >> exitFailure
             (Just diarDef, Right parseRes) -> (putStrLn $ show $ extractMsg diarDef parseRes) >> exitSuccess
