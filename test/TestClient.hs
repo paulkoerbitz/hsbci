@@ -50,4 +50,4 @@ main = do
           case (M.lookup "DialogInitAnonRes" defs, parser $ BS.concat $ LBS.toChunks $ responseBody response) of
             (Nothing     , _ )             -> putStrLn "ERROR: Can't find 'DialogInitAnonRes' in definitions" >> exitFailure
             (Just _      , Left err)       -> TIO.putStrLn ("ERROR: Can't parse response: " <> err) >> exitFailure
-            (Just diarDef, Right parseRes) -> (putStrLn $ show $ validateAndExtract diarDef parseRes) >> exitSuccess
+            (Just diarDef, Right parseRes) -> (putStrLn $ show $ extractMsg diarDef parseRes) >> exitSuccess

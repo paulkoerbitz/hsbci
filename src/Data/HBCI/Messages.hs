@@ -2,20 +2,20 @@
 module Data.HBCI.Messages where
 
 import           Control.Applicative ((<$>))
+import           Control.Arrow (second)
 import           Control.Monad (foldM)
 import           Control.Monad.State (StateT, evalStateT, get, modify)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
+import           Data.Either (partitionEithers)
 import           Data.Monoid ((<>))
 import qualified Data.Map  as M
 import           Data.Maybe (isJust, fromJust)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import           Data.Traversable (traverse)
 
 import           Data.HBCI.Types
 
-import           Debug.Trace
 
 isBinaryType :: DEType -> Bool
 isBinaryType tp = tp == Bin || tp == DTAUS
@@ -66,6 +66,7 @@ fillDe userVals prefix (DEdef deNm deTp minSz maxSz minNum _ valids) =
     (False, Just (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
                                   then (escape <$> lift (checkSize key deTp minSz maxSz s)) >>= updateSize . DEStr
                                   else lift $! Left $! "Value '" <> s <> "' for key '" <> key <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
+    (False, Just _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must not be binary"
 
 
 fillSeg :: M.Map T.Text DEValue -> SEG -> FillRes SEGValue
@@ -119,14 +120,14 @@ validateAndExtractSegItem _      (DEItem (DEval deVal)) [deVal'] | deVal == deVa
   return []
 validateAndExtractSegItem prefix (DEItem (DEval deVal)) [deVal']                   =
   Left $ "Unexpected value in segment " <> prefix <> ", expected '" <> T.pack (show deVal) <> "' but got '" <> T.pack (show deVal') <> "'"
-validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [deVal] =
+validateAndExtractSegItem prefix (DEItem (DEdef nm _tp _minSz _maxSz _minNum _maxNum _valids)) [deVal] =
   return [(concatPrefix prefix nm, deVal)] -- FIXME: validate
-validateAndExtractSegItem prefix (DEItem (DEdef nm tp minSz maxSz minNum maxNum valids)) [] =
+validateAndExtractSegItem prefix (DEItem (DEdef nm _tp minSz _maxSz minNum _maxNum _valids)) [] =
   let prefix' = concatPrefix prefix nm
   in if minNum == 0 then return []
      else if minSz == 0 then return [(prefix', DEStr "")]
           else Left $ "Required DE '" <> prefix' <> "' not found during extraction"
-validateAndExtractSegItem prefix (DEGItem (DEG degNm minNum maxNum des)) devals    =
+validateAndExtractSegItem prefix (DEGItem (DEG degNm _minNum _maxNum des)) devals    =
   -- This is really a hack to use the above implementations - not very nice
   let prefix' = concatPrefix prefix degNm
       deitems = map DEItem des
@@ -135,24 +136,8 @@ validateAndExtractSegItem prefix (DEGItem (DEG degNm minNum maxNum des)) devals 
   in concat <$> mapM (uncurry $ validateAndExtractSegItem prefix') items
 validateAndExtractSegItem prefix _ _ = Left $ "Unexpected deval when trying to process segment '" <> prefix <> "'"
 
-
-validateAndExtractSeg :: SF -> MSGValue -> Either T.Text (MSGValue, [(T.Text,DEValue)])
-validateAndExtractSeg (SF minnum _ (seg:_))         []               = checkMinnum minnum (segName seg) []
-validateAndExtractSeg (SF _      _ [])              vals             = return (vals, [])
-validateAndExtractSeg (SF minnum maxnum (seg:segs)) (segVal:segVals) = do
-  valHd <- getValHead segVal
-  defHd <- getDefHead seg
-  if valHd == defHd
-    then ("SEG found: defHd=" <> show defHd <> ", valHd=" <> show valHd) `trace`
-         let items = segItems seg
-             prefix = segName seg
-         in do vals <- foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
-               (segVals', otherVals) <- validateAndExtractSeg (SF minnum maxnum segs) segVals
-               return (segVals', vals ++ otherVals)
-    else ("SEG not found: defHd=" <> show defHd <> ", valHd=" <> show valHd) `trace` checkMinnum minnum (segName seg) (segVal:segVals)
-
-validateAndExtractSeg' :: M.Map T.Text SEG -> SEGValue -> Either T.Text [(T.Text, DEValue)]
-validateAndExtractSeg' defs segVal = do
+extractSeg :: M.Map T.Text SEG -> SEGValue -> Either T.Text [(T.Text, DEValue)]
+extractSeg defs segVal = do
   valHd <- getValHead segVal
   case M.lookup (fst valHd <> "-" <> snd valHd) defs of
     Nothing -> Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd
@@ -160,22 +145,15 @@ validateAndExtractSeg' defs segVal = do
                        prefix = segName segDef
                    in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
 
-findSEGs :: MSG -> M.Map T.Text SEG
-findSEGs = undefined
-
-
-validateAndExtract :: MSG -> MSGValue -> Either T.Text (M.Map T.Text DEValue)
-validateAndExtract (MSG _ _ [])  msgV@(_:_) = Left $ "Could not fully process message: " <> T.pack (show msgV)
-validateAndExtract (MSG _ _ sfs) msgV       =
-  M.fromList . snd <$> go (msgV, []) sfs
+findSegDefs :: MSG -> M.Map T.Text SEG
+findSegDefs (MSG _ _ sfs) = M.fromList $! foldr f [] sfs
   where
-    go result       []       = return result
-    go (rest, vals) (sf:sfs) = do
-       (rest', vals') <- validateAndExtractSeg sf rest
-       if null vals'
-         then go (rest', vals) sfs
-         else go (rest', vals' ++ vals) (decNums sf:sfs)
+    f (SF _ _ (seg:_)) acc =
+      case getDefHead seg of
+        Right (hd, version) -> (hd <> "-" <> version, seg) : acc
+        Left _              -> acc
+    f _                acc = acc
 
-    decNums (SF minnum maxnum segs) = let minnum' = if minnum > 0 then minnum - 1 else minnum
-                                          maxnum' = if isJust maxnum && fromJust maxnum > 0 then (\x -> x-1) <$> maxnum else maxnum
-                                      in (SF minnum' maxnum' segs)
+extractMsg :: MSG -> MSGValue -> ([T.Text], [(T.Text, DEValue)])
+extractMsg msgDef msgVal =
+  second concat $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal

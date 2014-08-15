@@ -2,16 +2,14 @@
 module Main where
 
 
-import           Control.Applicative ((<$>))
 import           Control.Arrow (second)
 import           Control.Monad.State (evalStateT)
 import           Data.Monoid ((<>))
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
-import           Data.Maybe (catMaybes, fromJust)
+import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import           Text.XML.Light (parseXML, onlyElems, Content(..))
-import           Text.PrettyPrint (render)
 
 import           Test.HUnit (assertBool)
 import           Test.Framework as TF (defaultMain, testGroup, Test)
@@ -516,21 +514,18 @@ parseBankPropsLineTests =
     ]
   ]
 
-validateAndExtractSegTests :: [TF.Test]
-validateAndExtractSegTests =
-  [ testGroup "Test validateAndExtractSeg function"
-    [ testCase "SF with minnum 1 and empty MSGVal gives error" $
-      assertEq (Left "Required SEG 'MsgHead' not found") $
-      validateAndExtractSeg (sf0 { sfMinNum = 1}) []
-    , testCase "SF with minnum 0 and empty MSGVal discarded" $
-      assertEq (Right ([], [])) $
-      validateAndExtractSeg sf0 []
-    , testCase "Single SF with minnum 0 discarded if not matched" $
-      assertEq (Right ([[[DEStr "HNHBK2", DEStr "whatever", DEStr "1"]]], [])) $
-      validateAndExtractSeg sf0 [[[DEStr "HNHBK2", DEStr "whatever", DEStr "1"]]]
+extractSegTests :: [TF.Test]
+extractSegTests =
+  [ testGroup "Test extractSeg function"
+    [ testCase "extractSeg expects a MsgHead" $
+      assertEq (Left "Required element MsgHead not found") $
+      extractSeg msg0 []
+    , testCase "extractSeg gives an error if it can't find the element" $
+      assertEq (Left "No definition for seg head HNHBK-3") $
+      extractSeg msg0 [[DEStr "HNHBK", DEStr "1", DEStr "3"]]
     , testCase "Extract some entries from a single entry" $
-      assertEq (Right ([],[("MsgHead.msgsize",DEStr "000000000123"),("MsgHead.SegHead.seq",DEStr "1")])) $
-      validateAndExtractSeg sf1 [[[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]]
+      assertEq (Right [("MsgHead.msgsize",DEStr "000000000123"),("MsgHead.SegHead.seq",DEStr "1")]) $
+      extractSeg msg1 [[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]
     ]
   ]
   where
@@ -541,17 +536,21 @@ validateAndExtractSegTests =
                               segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK")), (DEval (DEStr "whatever")), (DEval (DEStr "1"))])]}]}
     sf1 = head $ msgItems $ dialogInitAnon
 
-validateAndExtractTests :: [TF.Test]
-validateAndExtractTests =
-  [ testGroup "Test validateAndExtract function"
+    msg0 = findSegDefs (MSG False False [sf0])
+
+    msg1 = findSegDefs (MSG False False [sf1])
+
+extractMsgTests :: [TF.Test]
+extractMsgTests =
+  [ testGroup "Test extractMsg function"
     [ testCase "Extract from generatd 'DialogInitAnon'" $
       let keys    = ["Idn.country", "BPD", "UPD", "lang", "prodName", "prodVersion"]
-          vals    = ["0",  "0", "0", "0", "HsBCI", "0.1.0"]
-          inputs  = M.fromList $ zip keys (map DEStr vals)
-          retVals = do msg <- fillMsg inputs dialogInitAnon
-                       out <- validateAndExtract dialogInitAnon msg
-                       return $ M.fromList $ catMaybes [(\v -> (k,v)) <$> M.lookup k out | k <- keys]
-      in assertEq (Right inputs) retVals
+          vals    = map DEStr ["0",  "0", "0", "0", "HsBCI", "0.1.0"]
+          inputs  = zip keys vals
+          retVals = do msg <- fillMsg (M.fromList inputs) dialogInitAnon
+                       let (_errors, matched) = extractMsg dialogInitAnon msg
+                       return $ catMaybes [lookup k matched | k <- keys]
+      in assertEq (Right vals) retVals
     ]
   ]
 
@@ -569,8 +568,8 @@ standaloneTests = concat [ parserTests
                          , elemToMSGTests
                          , fullMsgGenTests
                          , parseBankPropsLineTests
-                         , validateAndExtractSegTests
-                         , validateAndExtractTests
+                         , extractSegTests
+                         , extractMsgTests
                          ]
 
 xmlTests :: [[Content] -> TF.Test]
