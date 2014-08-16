@@ -1675,7 +1675,7 @@
       <DE maxsize="3" name="hbciversion" type="Num" />
       <DE name="dialogid" type="ID" />
       <DE maxsize="4" name="msgnum" type="Num" />
-      <DEG minnum="0" type="MsgRef" />
+      <DEG minnum="0" type="MsgRef" name="MsgRef"/>
 
       <value path="SegHead.code">HNHBK</value>
       <value path="SegHead.version">3</value>
