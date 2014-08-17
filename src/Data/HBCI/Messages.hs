@@ -4,7 +4,7 @@ module Data.HBCI.Messages where
 import           Control.Applicative ((<$>))
 import           Control.Arrow (second)
 import           Control.Monad (foldM)
-import           Control.Monad.State (StateT, evalStateT, get, modify)
+import           Control.Monad.State (StateT, evalStateT, get, modify, put, runStateT)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
 import           Data.Either (partitionEithers)
@@ -98,8 +98,15 @@ fillMsg userVals (MSG _reqSig _reqEnc items) =
 
     userVals' = M.insert "MsgHead.msgsize" (DEStr "000000000000") userVals
 
+    -- This is a hack that is really not very pretty - the whole thing should
+    -- really be properly refactored
     fillSf :: SF -> FillRes MSGValue
-    fillSf (SF _ _ items) = traverse (fillSeg userVals') items
+    fillSf (SF minnum _ items) = do
+      state <- get
+      case runStateT (traverse (fillSeg userVals') items) state of
+        Left err  -> if minnum == 0 then return [] else lift (Left err)
+        Right (res, state') -> (put state' >> lift (Right res))
+
 
 -- FIXME: A use case for lenses(?)
 getValHead :: SEGValue -> Either T.Text (T.Text, T.Text)
