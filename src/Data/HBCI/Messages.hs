@@ -80,12 +80,15 @@ fillSegItem :: M.Map T.Text DEValue -> T.Text -> SEGItem -> FillRes DEGValue
 fillSegItem userVals = go
   where
     go prefix (DEItem de)                        = (:[]) <$> fillDe userVals prefix de
-    go prefix (DEGItem (DEG degnm _ _ degitems)) =
+    go prefix (DEGItem (DEG degnm minnum _ degitems)) =
       let newPrefix = concatPrefix prefix degnm
           n         = max (length degitems - 1) 0 -- number of : between DEs
-      in do
-        modify (\x -> x { msgSize = msgSize x + n })
-        traverse (fillDe userVals newPrefix) degitems
+      in do state <- get
+            case runStateT (traverse (fillDe userVals newPrefix) degitems) state of
+              Left err            -> if minnum == 0 then return [] else lift (Left err)
+              Right (res, state') -> (put state' >> modify (\x -> x { msgSize = msgSize x + n }) >> lift (Right res))
+    --     modify (\x -> x { msgSize = msgSize x + n })
+    --     traverse (fillDe userVals newPrefix) degitems
 
 fillMsg :: M.Map T.Text DEValue -> MSG -> Either T.Text MSGValue
 fillMsg userVals (MSG _reqSig _reqEnc items) =
