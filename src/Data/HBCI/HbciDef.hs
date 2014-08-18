@@ -11,7 +11,7 @@ import qualified Data.Text.Encoding as E
 import           Data.Traversable (traverse)
 import           Data.Maybe (listToMaybe)
 import           Data.Monoid ((<>))
-import           Control.Applicative ((<$>), (<*>))
+import           Control.Applicative ((<$>), (<*>), (<|>))
 import           Control.Monad (foldM)
 import           System.IO (openFile, hClose, IOMode(..))
 import           Text.XML.Light
@@ -137,7 +137,7 @@ findRequestTag = maybe False (== "1") . findAttrByKey "needsRequestTag"
 getCommonAttrsWDefault :: [Attr] -> (T.Text, Int, Maybe Int)
 getCommonAttrsWDefault attrs = (name, minnum, maxnum)
   where
-    name   = maybe "" T.pack (findAttrByKey "name" attrs)
+    name   = maybe "" T.pack $ findAttrByKey "name" attrs <|> findAttrByKey "type" attrs
     minnum = maybe 1 read (findAttrByKey "minnum" attrs)
     maxnum = maybe (Just 1) (\x -> let y = read x in if y == 0 then Nothing else Just y) (findAttrByKey "maxnum" attrs)
 
