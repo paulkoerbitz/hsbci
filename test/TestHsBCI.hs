@@ -302,7 +302,7 @@ elemToMSGTests =
       (testF (M.fromList [("seg01", SEG "" False 1 (Just 1) [])]) M.empty "<MSGdef id=\"msg01\"><SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/></MSGdef>")
     , testCase "MSGdef with SF containing two SEGs and a SEG" $
       let segMap = M.fromList [("seg01", SEG "" False 1 (Just 1) [])]
-          sfMap = M.fromList [("sf01", [[]])]
+          sfMap = M.fromList [("sf01", [])]
       in assertEq (Right ("msg01", MSG True True [SEG "SegName01" False 0 (Just 99) []]))
          (testF segMap sfMap
           ("<MSGdef id=\"msg01\">" <>
@@ -311,7 +311,7 @@ elemToMSGTests =
            "</MSGdef>"))
     , testCase "MSGdef with SF containing two SEGs and a SEG and values" $
       let segMap = M.fromList [("seg02", SEG "" False 1 (Just 1) [DEItem (DEdef "DeInSeg" AN 0 Nothing 0 Nothing Nothing)])]
-          sfMap = M.fromList [("sf01", [[SEG "SegInSf" False 1 (Just 20) [DEGItem (DEG "DegInSf" 0 Nothing [DEdef "DeInSf" AN 0 Nothing 0 Nothing Nothing])]]])]
+          sfMap = M.fromList [("sf01", [SEG "SegInSf" False 1 (Just 20) [DEGItem (DEG "DegInSf" 0 Nothing [DEdef "DeInSf" AN 0 Nothing 0 Nothing Nothing])]])]
       in assertEq (Right ("msg01", MSG True True [SEG "SegInSf" False 1 Nothing
                                                    [DEGItem (DEG "DegInSf" 0 Nothing [DEval (DEStr "123")])]
                                                 ,SEG "SegOnTop" False 0 (Just 99) [DEItem (DEval (DEStr "456"))]
@@ -346,77 +346,77 @@ fillDeTests =
   [ testGroup "fillDeTests - simple DE examples"
     [ testCase "DEStr is not modified" $
       assertEq (Right (DEStr "abc"))
-      (testF Nothing "" (DEval (DEStr "abc")))
+      (testF Nothing (DEval (DEStr "abc")))
     , testCase "DEBinary is not modified" $
       assertEq (Right (DEBinary "abc"))
-      (testF Nothing "" (DEval (DEBinary "abc")))
+      (testF Nothing (DEval (DEBinary "abc")))
     , testCase "Simple replacement" $
       assertEq (Right (DEStr "abc"))
-      (testF (M.fromList [("deKey", DEStr "abc")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "abc")) (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
     , testCase "Replacement with prefix" $
       assertEq (Right (DEStr "abc"))
-      (testF (M.fromList [("prefix.suffix.deKey", DEStr "abc")]) "prefix.suffix" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "abc")) (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
     , testCase "Names with multiple dots are found" $
       assertEq (Right (DEStr "abc"))
-      (testF (M.fromList [("prefix.suffix.deKey0.deKey1", DEStr "abc")]) "prefix.suffix" (DEdef "deKey0.deKey1" AN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "abc")) (DEdef "deKey0.deKey1" AN 0 Nothing 0 Nothing Nothing))
     , testCase "fillDe gives error if name is outside of valids" $
       assertEq (Left "Value 'abc' for key 'deKey' not in valid values '[\"ab\",\"c\",\"ac\"]'")
-      (testF (M.fromList [("deKey", DEStr "abc")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing (Just ["ab", "c", "ac"])))
+      (testF (Just (DEStr "abc")) (DEdef "deKey" AN 0 Nothing 0 Nothing (Just ["ab", "c", "ac"])))
     , testCase "AN replacement results in string" $
       assertEq (Right (DEStr "abc0123"))
-      (testF (M.fromList [("deKey", DEStr "abc0123")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "abc0123")) (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
     , testCase "AN replacement escapes ?@':+ with ?" $
       assertEq (Right (DEStr "???@?'?:?+"))
-      (testF (M.fromList [("deKey", DEStr "?@':+")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "?@':+")) (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
     , testCase "Bin replacement results in binary" $
       assertEq (Right (DEBinary "?@'"))
-      (testF (M.fromList [("deKey", DEBinary "?@'")]) "" (DEdef "deKey" Bin 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEBinary "?@'")) (DEdef "deKey" Bin 0 Nothing 0 Nothing Nothing))
     , testCase "Code replacement results in string" $
       assertEq (Right (DEStr "123456"))
-      (testF (M.fromList [("deKey", DEStr "123456")]) "" (DEdef "deKey" Code 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "123456")) (DEdef "deKey" Code 0 Nothing 0 Nothing Nothing))
     , testCase "Ctr replacement results in string" $
       assertEq (Right (DEStr "123456"))
-      (testF (M.fromList [("deKey", DEStr "123456")]) "" (DEdef "deKey" Ctr 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "123456")) (DEdef "deKey" Ctr 0 Nothing 0 Nothing Nothing))
     , testCase "Cur replacement results in string" $
       assertEq (Right (DEStr "EUR"))
-      (testF (M.fromList [("deKey", DEStr "EUR")]) "" (DEdef "deKey" Cur 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "EUR")) (DEdef "deKey" Cur 0 Nothing 0 Nothing Nothing))
     , testCase "DTAUS replacement results in binary" $
       assertEq (Right (DEBinary "SomethingSomething:?@'"))
-      (testF (M.fromList [("deKey", DEBinary "SomethingSomething:?@'")]) "" (DEdef "deKey" DTAUS 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEBinary "SomethingSomething:?@'")) (DEdef "deKey" DTAUS 0 Nothing 0 Nothing Nothing))
     , testCase "Date replacement results in string" $
       assertEq (Right (DEStr "24.07.2014"))
-      (testF (M.fromList [("deKey", DEStr "24.07.2014")]) "" (DEdef "deKey" Date 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "24.07.2014")) (DEdef "deKey" Date 0 Nothing 0 Nothing Nothing))
     , testCase "Dig replacement results in string" $
       assertEq (Right (DEStr "0123456789"))
-      (testF (M.fromList [("deKey", DEStr "0123456789")]) "" (DEdef "deKey" Dig 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "0123456789")) (DEdef "deKey" Dig 0 Nothing 0 Nothing Nothing))
     , testCase "ID replacement results in string" $
       assertEq (Right (DEStr "0123456789"))
-      (testF (M.fromList [("deKey", DEStr "0123456789")]) "" (DEdef "deKey" ID 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "0123456789")) (DEdef "deKey" ID 0 Nothing 0 Nothing Nothing))
     , testCase "JN replacement results in string" $
       assertEq (Right (DEStr "J"))
-      (testF (M.fromList [("deKey", DEStr "J")]) "" (DEdef "deKey" JN 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "J")) (DEdef "deKey" JN 0 Nothing 0 Nothing Nothing))
     , testCase "Num replacement results in string" $
       assertEq (Right (DEStr "0123456789"))
-      (testF (M.fromList [("deKey", DEStr "0123456789")]) "" (DEdef "deKey" Num 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "0123456789")) (DEdef "deKey" Num 0 Nothing 0 Nothing Nothing))
     , testCase "Time replacement results in string" $
       assertEq (Right (DEStr "12?:13?:14"))
-      (testF (M.fromList [("deKey", DEStr "12:13:14")]) "" (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "12:13:14")) (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
     , testCase "Wrt replacement results in string" $
       assertEq (Right (DEStr "123,45"))
-      (testF (M.fromList [("deKey", DEStr "123,45")]) "" (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
+      (testF (Just (DEStr "123,45")) (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
     , testCase "fillDe gives error if provided string too long" $
       assertEq (Left "Field 'deKey' has a maxsize of 5 but provided value '123456' has a length of 6")
-      (testF (M.fromList [("deKey", DEStr "123456")]) "" (DEdef "deKey" AN 0 (Just 5) 0 Nothing Nothing))
+      (testF (Just (DEStr "123456")) (DEdef "deKey" AN 0 (Just 5) 0 Nothing Nothing))
     , testCase "fillDe fills entry with 0s if provided Num too short" $
       assertEq (Right (DEStr "000123"))
-      (testF (M.fromList [("deKey", DEStr "123")]) "" (DEdef "deKey" Num 6 (Just 6) 0 Nothing Nothing))
+      (testF (Just (DEStr "123")) (DEdef "deKey" Num 6 (Just 6) 0 Nothing Nothing))
     , testCase "fillDe gives error if values of other types are too short" $
       assertEq (Left "Field 'deKey' has a minsize of 6 but provided value '123' has a length of 3")
-      (testF (M.fromList [("deKey", DEStr "123")]) "" (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
+      (testF (Just (DEStr "123")) (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
     ]
   ]
   where
-    testF x y z = evalStateT (fillDe x y z) (MkFillState 0 1)
+    testF x y = evalStateT (fillDe x y) (MkFillState 0 1)
 
 
 fillMsgTests :: [TF.Test]
@@ -425,45 +425,46 @@ fillMsgTests =
     [ testCase "One item message -- success" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("MsgHead.de1", DEStr "HNHBK")])
-                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
-                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "HNHBK")])])
+                (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- missing item" $
       assertEq (Left "Required key 'seg1.de1' missing in userVals")
                (fillMsg
                 M.empty
-                (MSG False False [[SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+                (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- missing msgsize field" $
       assertEq (Left "Didn't find expected field message size")
                (fillMsg
-                (M.fromList [("seg1.de1", DEStr "abcxyz")])
-                (MSG False False [[SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+                (M.fromList [("seg1", M.fromList [("de1", DEentry $ DEStr "abcxyz")])])
+                (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 1" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
                 M.empty
-                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
-                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 2" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("MsgHead.de1", DEStr "SomethingOrOther")])
-                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
-                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "SomethingOrOther")])])
+                (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value outside of valids" $
       assertEq (Left "Value '3' for key 'MsgHead.de1' not in valid values '[\"1\",\"2\"]'")
                (fillMsg
-                (M.fromList [("MsgHead.de1", DEStr "3")])
-                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
+                (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "3")])])
+                (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
     , testCase "Message with one DEG with two DEs" $
       assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
                (fillMsg
-                (M.fromList [("MsgHead.deg1.de1", DEStr "99"), ("MsgHead.deg1.de2", DEStr "77" )])
+                (M.fromList [("MsgHead", M.fromList [("deg1", DEGentry $ M.fromList [("de1", DEStr "99")
+                                                                                    ,("de2", DEStr "77")])])])
                 (MSG False False
-                 [[SEG "MsgHead" False 0 Nothing
+                 [SEG "MsgHead" False 0 Nothing
                    [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 1 Nothing 1 (Just 1) Nothing
                                                   ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])
-                   ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                   ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     -- What else to test?
     -- Validation of minsize, maxsize, minnum, maxnum
     -- Validation of DETypes
@@ -477,12 +478,15 @@ fullMsgGenTests :: [TF.Test]
 fullMsgGenTests =
   [ testGroup "Test full generation of HBCI messages"
     [ testCase "DialogInitAnon" $
-      let vals = M.fromList $ map (second DEStr) [("Idn.KIK.country", "0")
-                                                 ,("ProcPrep.BPD", "0")
-                                                 ,("ProcPrep.UPD", "0")
-                                                 ,("ProcPrep.lang", "0")
-                                                 ,("ProcPrep.prodName", "HsBCI")
-                                                 ,("ProcPrep.prodVersion", "0.1.0")]
+      let vals =
+            M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
+                       ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
+                                                ,("UPD", DEentry $ DEStr "0")
+                                                ,("lang", DEentry $ DEStr "0")
+                                                ,("prodName", DEentry $ DEStr "HsBCI")
+                                                ,("prodVersion", DEentry $ DEStr "0.1.0")
+                                                ])
+                       ]
       in assertEq
          (Right "HNHBK:1:3:+000000000104+220+0+1+'HKIDN:2:2:+0:+9999999999+0+0'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HNHBS:4:1:+1'")
          (testF dialogInitAnon vals)
@@ -547,8 +551,13 @@ extractMsgTests =
     [ testCase "Extract from generatd 'DialogInitAnon'" $
       let keys    = ["Idn.KIK.country", "ProcPrep.BPD", "ProcPrep.UPD", "ProcPrep.lang", "ProcPrep.prodName", "ProcPrep.prodVersion"]
           vals    = map DEStr ["0",  "0", "0", "0", "HsBCI", "0.1.0"]
-          inputs  = zip keys vals
-          retVals = do msg <- fillMsg (M.fromList inputs) dialogInitAnon
+          inputs  = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
+                               ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
+                                                        ,("UPD", DEentry $ DEStr "0")
+                                                        ,("lang", DEentry $ DEStr "0")
+                                                        ,("prodName", DEentry $ DEStr "HsBCI")
+                                                        ,("prodVersion", DEentry $ DEStr "0.1.0")])]
+          retVals = do msg <- fillMsg inputs dialogInitAnon
                        let (_errors, matched) = extractMsg dialogInitAnon msg
                        return $ catMaybes [lookup k matched | k <- keys]
       in assertEq (Right vals) retVals
