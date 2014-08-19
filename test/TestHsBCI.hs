@@ -189,30 +189,30 @@ elemToSEGTests :: [TF.Test]
 elemToSEGTests =
   [ testGroup "Constructed SEGdefs examples"
     [ testCase "Empty SEGdef" $
-      assertEq (Right ("01", SEG "" False []))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) []))
       (testF1 "<SEGdef id=\"01\"></SEGdef>")
     , testCase "SEGdef with single DE" $
-      assertEq (Right ("01", SEG "" False [DEItem (DEdef "de01" AN 0 Nothing 1 Nothing Nothing)]))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) [DEItem (DEdef "de01" AN 0 Nothing 1 Nothing Nothing)]))
       (testF1 "<SEGdef id=\"01\"><DE name=\"de01\" type=\"AN\"/></SEGdef>")
     , testCase "SEGdef with single DEG" $
-      assertEq (Right ("01", SEG "" False [DEGItem (DEG "DegName" 0 (Just 2) [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])]))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) [DEGItem (DEG "DegName" 0 (Just 2) [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])]))
       (testF2 (M.fromList [("deg01", DEG "" 0 Nothing [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])])
        "<SEGdef id=\"01\"><DEG type=\"deg01\" name=\"DegName\" minnum=\"0\" maxnum=\"2\"/></SEGdef>")
     , testCase "SEGdef with single DEG and default attributes" $
-      assertEq (Right ("01", SEG "" False [DEGItem (DEG "deg01" 1 (Just 1) [])]))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) [DEGItem (DEG "deg01" 1 (Just 1) [])]))
       (testF2 (M.fromList [("deg01", DEG "" 0 Nothing [])]) "<SEGdef id=\"01\"><DEG type=\"deg01\"/></SEGdef>")
     , testCase "SEGdef with single DEG and value" $
-      assertEq (Right ("01", SEG "" False [DEGItem (DEG "DegName" 0 (Just 2) [DEval (DEStr "abcdefgh")])]))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) [DEGItem (DEG "DegName" 0 (Just 2) [DEval (DEStr "abcdefgh")])]))
       (testF2 (M.fromList [("deg01", DEG "DegName" 0 Nothing [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])])
        "<SEGdef id=\"01\"><DEG type=\"deg01\" name=\"DegName\" minnum=\"0\" maxnum=\"2\"/><value path=\"DegName.de01\">abcdefgh</value></SEGdef>")
     , testCase "SEGdef with single DEG and valids" $
-      assertEq (Right ("01", SEG "" False [DEGItem (DEG "DegName" 0 (Just 2) [DEdef "de01" AN 0 Nothing 1 Nothing (Just ["a","b","c"])])]))
+      assertEq (Right ("01", SEG "" False 1 (Just 1) [DEGItem (DEG "DegName" 0 (Just 2) [DEdef "de01" AN 0 Nothing 1 Nothing (Just ["a","b","c"])])]))
       (testF2 (M.fromList [("deg01", DEG "DegName" 0 Nothing [DEdef "de01" AN 0 Nothing 1 Nothing Nothing])])
        "<SEGdef id=\"01\"><DEG type=\"deg01\" name=\"DegName\" minnum=\"0\" maxnum=\"2\"/><valids path=\"DegName.de01\"><validvalue>a</validvalue><validvalue>b</validvalue><validvalue>c</validvalue></valids></SEGdef>")
     , testCase "SEGdef with DEs and DEGs and values and valids" $
       assertEq
       (Right ("Seg01",
-             SEG "" False
+             SEG "" False 1 (Just 1)
              [ DEItem (DEdef "de01" AN 0 Nothing 1 Nothing (Just ["de01-1","de01-2"]))
              , DEGItem (DEG "DegName02" 0 (Just 2) [DEdef "de02" AN 0 Nothing 1 Nothing (Just ["a","b","c"])])
              , DEItem (DEval (DEStr "de03val"))
@@ -250,24 +250,24 @@ elemToSFTests =
       assertEq (Right ("sf01", []))
       (testF "<SFdef id=\"sf01\"></SFdef>")
     , testCase "Single Seg in SF" $
-      assertEq (Right ("sf01", [SF 5 (Just 7) [SEG "segName01" False []]]))
-      (testF2 (M.fromList [("segId01", SEG "" False [])]) M.empty
+      assertEq (Right ("sf01", [SEG "segName01" False 5 (Just 7) []]))
+      (testF2 (M.fromList [("segId01", SEG "" False 0 Nothing [])]) M.empty
        "<SFdef id=\"sf01\"><SEG type=\"segId01\" name=\"segName01\" minnum=\"5\" maxnum=\"7\"/></SFdef>")
     , testCase "Two Segs in SF" $
-      assertEq (Right ("sf01", [SF 5 (Just 7) [SEG "segName01" False []], SF 1 (Just 1) [SEG "segName02" False []]]))
-      (testF2 (M.fromList [("segId01", SEG "" False []),("segId02", SEG "" False [])]) M.empty
+      assertEq (Right ("sf01", [SEG "segName01" False 5 (Just 7) [], SEG "segName02" False 1 (Just 1) []]))
+      (testF2 (M.fromList [("segId01", SEG "" False 0 Nothing []),("segId02", SEG "" False 0 Nothing [])]) M.empty
        "<SFdef id=\"sf01\"><SEG type=\"segId01\" name=\"segName01\" minnum=\"5\" maxnum=\"7\"/><SEG type=\"segId02\" name=\"segName02\"/></SFdef>")
     , testCase "Single SF in SFdef" $
-      assertEq (Right ("sf01", [SF 0 Nothing [SEG "seg01" False [], SEG "seg02" False []]]))
-      (testF2 M.empty (M.fromList [("sfId01", [SF 0 Nothing [SEG "seg01" False [], SEG "seg02" False []]])])
+      assertEq (Right ("sf01", [SEG "seg01" False 0 Nothing [], SEG "seg02" False 0 Nothing []]))
+      (testF2 M.empty (M.fromList [("sfId01", [SEG "seg01" False 0 Nothing [], SEG "seg02" False 0 Nothing []])])
        "<SFdef id=\"sf01\"><SF type=\"sfId01\"/></SFdef>")
     ]
   ]
   where
-    testF :: BS.ByteString -> Either T.Text (T.Text, [SF])
+    testF :: BS.ByteString -> Either T.Text (T.Text, [SEG])
     testF = elemToSF M.empty M.empty . head . onlyElems . parseXML
 
-    testF2 :: M.Map T.Text SEG -> M.Map T.Text [SF] -> BS.ByteString -> Either T.Text (T.Text, [SF])
+    testF2 :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> BS.ByteString -> Either T.Text (T.Text, [SEG])
     testF2 segs sfs = elemToSF segs sfs . head . onlyElems . parseXML
 
 elemToMSGTests :: [TF.Test]
@@ -289,32 +289,32 @@ elemToMSGTests =
       assertEq (Left "1: SF: Referenced element 'sf01' not found")
       (testF M.empty M.empty "<MSGdef id=\"msg01\"><SF type=\"sf01\"/></MSGdef>")
     , testCase "MSGdef with single SF and default values" $
-      assertEq (Right ("msg01", MSG True True [SF 1 (Just 1) []]))
-      (testF M.empty (M.fromList [("sf01", [SF 1 (Just 1) []])]) "<MSGdef id=\"msg01\"><SF type=\"sf01\"/></MSGdef>")
+      assertEq (Right ("msg01", MSG True True []))
+      (testF M.empty (M.fromList [("sf01", [])]) "<MSGdef id=\"msg01\"><SF type=\"sf01\"/></MSGdef>")
     , testCase "MSGdef with single SEG which doesn't exit in the dicts" $
       assertEq (Left "1: SEG: Referenced element 'seg01' not found")
       (testF M.empty M.empty "<MSGdef id=\"msg01\"><SEG type=\"seg01\"/></MSGdef>")
     , testCase "MSGdef with single SEG, minnum, maxnum unspecified" $
-      assertEq (Right ("msg01", MSG True True [SF 1 (Just 1) [SEG "seg01" False []]]))
-      (testF (M.fromList [("seg01", SEG "" False [])]) M.empty "<MSGdef id=\"msg01\"><SEG type=\"seg01\"/></MSGdef>")
+      assertEq (Right ("msg01", MSG True True [SEG "seg01" False 1 (Just 1) []]))
+      (testF (M.fromList [("seg01", SEG "" False 1 (Just 1) [])]) M.empty "<MSGdef id=\"msg01\"><SEG type=\"seg01\"/></MSGdef>")
     , testCase "MSGdef with single SEG, name, minnum, and maxnum" $
-      assertEq (Right ("msg01", MSG True True [SF 0 (Just 99) [SEG "SegName01" False []]]))
-      (testF (M.fromList [("seg01", SEG "" False [])]) M.empty "<MSGdef id=\"msg01\"><SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/></MSGdef>")
+      assertEq (Right ("msg01", MSG True True [SEG "SegName01" False 0 (Just 99) []]))
+      (testF (M.fromList [("seg01", SEG "" False 1 (Just 1) [])]) M.empty "<MSGdef id=\"msg01\"><SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/></MSGdef>")
     , testCase "MSGdef with SF containing two SEGs and a SEG" $
-      let segMap = M.fromList [("seg01", SEG "" False [])]
-          sfMap = M.fromList [("sf01", [SF 5 (Just 20) []])]
-      in assertEq (Right ("msg01", MSG True True [SF 3 Nothing [], SF 0 (Just 99) [SEG "SegName01" False []]]))
+      let segMap = M.fromList [("seg01", SEG "" False 1 (Just 1) [])]
+          sfMap = M.fromList [("sf01", [[]])]
+      in assertEq (Right ("msg01", MSG True True [SEG "SegName01" False 0 (Just 99) []]))
          (testF segMap sfMap
           ("<MSGdef id=\"msg01\">" <>
            "<SF type=\"sf01\" minnum=\"3\" maxnum=\"0\"/>" <>
            "<SEG name=\"SegName01\" minnum=\"0\" maxnum=\"99\" type=\"seg01\"/>" <>
            "</MSGdef>"))
     , testCase "MSGdef with SF containing two SEGs and a SEG and values" $
-      let segMap = M.fromList [("seg02", SEG "" False [DEItem (DEdef "DeInSeg" AN 0 Nothing 0 Nothing Nothing)])]
-          sfMap = M.fromList [("sf01", [SF 1 (Just 20) [SEG "SegInSf" False [DEGItem (DEG "DegInSf" 0 Nothing [DEdef "DeInSf" AN 0 Nothing 0 Nothing Nothing])]]])]
-      in assertEq (Right ("msg01", MSG True True [SF 1 Nothing [SEG "SegInSf" False
-                                                               [DEGItem (DEG "DegInSf" 0 Nothing [DEval (DEStr "123")])]]
-                                                ,SF 0 (Just 99) [SEG "SegOnTop" False [DEItem (DEval (DEStr "456"))]]
+      let segMap = M.fromList [("seg02", SEG "" False 1 (Just 1) [DEItem (DEdef "DeInSeg" AN 0 Nothing 0 Nothing Nothing)])]
+          sfMap = M.fromList [("sf01", [[SEG "SegInSf" False 1 (Just 20) [DEGItem (DEG "DegInSf" 0 Nothing [DEdef "DeInSf" AN 0 Nothing 0 Nothing Nothing])]]])]
+      in assertEq (Right ("msg01", MSG True True [SEG "SegInSf" False 1 Nothing
+                                                   [DEGItem (DEG "DegInSf" 0 Nothing [DEval (DEStr "123")])]
+                                                ,SEG "SegOnTop" False 0 (Just 99) [DEItem (DEval (DEStr "456"))]
                                                 ]))
          (testF segMap sfMap
           ("<MSGdef id=\"msg01\">" <>
@@ -326,7 +326,7 @@ elemToMSGTests =
     ]
   ]
   where
-    testF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> BS.ByteString -> Either T.Text (T.Text, MSG)
+    testF :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> BS.ByteString -> Either T.Text (T.Text, MSG)
     testF segs sfs = elemToMSG segs sfs . head . onlyElems . parseXML
 
 
@@ -346,10 +346,10 @@ fillDeTests =
   [ testGroup "fillDeTests - simple DE examples"
     [ testCase "DEStr is not modified" $
       assertEq (Right (DEStr "abc"))
-      (testF M.empty "" (DEval (DEStr "abc")))
+      (testF Nothing "" (DEval (DEStr "abc")))
     , testCase "DEBinary is not modified" $
       assertEq (Right (DEBinary "abc"))
-      (testF M.empty "" (DEval (DEBinary "abc")))
+      (testF Nothing "" (DEval (DEBinary "abc")))
     , testCase "Simple replacement" $
       assertEq (Right (DEStr "abc"))
       (testF (M.fromList [("deKey", DEStr "abc")]) "" (DEdef "deKey" AN 0 Nothing 0 Nothing Nothing))
@@ -416,7 +416,7 @@ fillDeTests =
     ]
   ]
   where
-    testF x y z= evalStateT (fillDe x y z) (MkFillState 0 1)
+    testF x y z = evalStateT (fillDe x y z) (MkFillState 0 1)
 
 
 fillMsgTests :: [TF.Test]
@@ -426,42 +426,41 @@ fillMsgTests =
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
                 (M.fromList [("MsgHead.de1", DEStr "HNHBK")])
-                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
-                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- missing item" $
       assertEq (Left "Required key 'seg1.de1' missing in userVals")
                (fillMsg
                 M.empty
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+                (MSG False False [[SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- missing msgsize field" $
       assertEq (Left "Didn't find expected field message size")
                (fillMsg
                 (M.fromList [("seg1.de1", DEStr "abcxyz")])
-                (MSG False False [SF 0 Nothing [SEG "seg1" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
+                (MSG False False [[SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- value already set 1" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
                 M.empty
-                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEval (DEStr "HNHBK"))
-                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- value already set 2" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
                (fillMsg
                 (M.fromList [("MsgHead.de1", DEStr "SomethingOrOther")])
-                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEval (DEStr "HNHBK"))
-                                                                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
+                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
+                                                                 ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
     , testCase "One item message -- value outside of valids" $
       assertEq (Left "Value '3' for key 'MsgHead.de1' not in valid values '[\"1\",\"2\"]'")
                (fillMsg
                 (M.fromList [("MsgHead.de1", DEStr "3")])
-                (MSG False False [SF 0 Nothing [SEG "MsgHead" False [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
+                (MSG False False [[SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]]))
     , testCase "Message with one DEG with two DEs" $
       assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
                (fillMsg
                 (M.fromList [("MsgHead.deg1.de1", DEStr "99"), ("MsgHead.deg1.de2", DEStr "77" )])
                 (MSG False False
-                 [SF 0 Nothing
-                  [SEG "MsgHead" False
+                 [[SEG "MsgHead" False 0 Nothing
                    [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 1 Nothing 1 (Just 1) Nothing
                                                   ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])
                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]]))
@@ -531,14 +530,14 @@ extractSegTests =
     ]
   ]
   where
-    sf0 = SF {sfMinNum = 0,
-              sfMaxNum = Just 1,
-              sfItems = [SEG {segName = "MsgHead",
-                              needsRequestTag = False,
-                              segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK")), (DEval (DEStr "whatever")), (DEval (DEStr "1"))])]}]}
+    sf0 = [SEG {segName = "MsgHead",
+                needsRequestTag = False,
+                segMinNum = 0,
+                segMaxNum = Just 1,
+                segItems = [DEGItem (DEG "" 1 (Just 1) [(DEval (DEStr "HNHBK")), (DEval (DEStr "whatever")), (DEval (DEStr "1"))])]}]
     sf1 = head $ msgItems $ dialogInitAnon
 
-    msg0 = findSegDefs (MSG False False [sf0])
+    msg0 = findSegDefs (MSG False False sf0)
 
     msg1 = findSegDefs (MSG False False [sf1])
 
@@ -584,7 +583,7 @@ main = do
 
 dialogInitAnon :: MSG
 dialogInitAnon =
-  (MSG False False [(SF 1 (Just 1) [(SEG "MsgHead" False [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBK")),
+  (MSG False False [(SEG "MsgHead" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBK")),
                                                                                             (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
                                                                                             (DEval (DEStr "3")),
                                                                                             (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
@@ -593,8 +592,8 @@ dialogInitAnon =
                                                         (DEItem (DEval (DEStr "0"))),
                                                         (DEItem (DEval (DEStr "1"))),
                                                         (DEGItem (DEG "MsgRef" 0 (Just 1) [(DEdef "dialogid" ID 0 Nothing 1 Nothing Nothing),
-                                                                                           (DEdef "msgnum" Num 0 (Just 4) 1 Nothing Nothing)]))])]),
-                  (SF 1 (Just 1) [(SEG "Idn" False [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKIDN")),
+                                                                                           (DEdef "msgnum" Num 0 (Just 4) 1 Nothing Nothing)]))]),
+                  (SEG "Idn" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKIDN")),
                                                                                         (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
                                                                                         (DEval (DEStr "2")),
                                                                                         (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
@@ -602,8 +601,8 @@ dialogInitAnon =
                                                                                     (DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing)])),
                                                     (DEItem (DEval (DEStr "9999999999"))),
                                                     (DEItem (DEval (DEStr "0"))),
-                                                    (DEItem (DEval (DEStr "0")))])]),
-                  (SF 1 (Just 1) [(SEG "ProcPrep" False [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKVVB")),
+                                                    (DEItem (DEval (DEStr "0")))]),
+                  (SEG "ProcPrep" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKVVB")),
                                                                                              (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
                                                                                              (DEval (DEStr "2")),
                                                                                              (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
@@ -614,9 +613,9 @@ dialogInitAnon =
                                                                                                                "2",
                                                                                                                "3"]))),
                                                          (DEItem (DEdef "prodName" AN 0 (Just 25) 1 Nothing Nothing)),
-                                                         (DEItem (DEdef "prodVersion" AN 0 (Just 5) 1 Nothing Nothing))])]),
-                  (SF 1 (Just 1) [(SEG "MsgTail" False [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBS")),
+                                                         (DEItem (DEdef "prodVersion" AN 0 (Just 5) 1 Nothing Nothing))]),
+                  (SEG "MsgTail" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBS")),
                                                                                             (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
                                                                                             (DEval (DEStr "1")),
                                                                                             (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
-                                                        (DEItem (DEval (DEStr "1")))])])])
+                                                        (DEItem (DEval (DEStr "1")))])])

@@ -36,6 +36,9 @@ setSEGItem f nms (DEGItem deg@(DEG degNm minnum maxnum des)) =
      then (DEGItem (DEG degNm minnum maxnum (map (setDE f nmsSuff) des)))
      else (DEGItem deg)
 
+setSEG :: (DE -> DE) -> [T.Text] -> SEG -> SEG
+setSEG f nms seg = seg { segItems = setSEGItem f nms <$> segItems seg }
+
 setValids :: ((DE -> DE) -> [T.Text] -> a -> a) -> T.Text -> [T.Text] -> a -> a
 setValids f nm valids = f (\de -> de { deValids = Just valids }) (T.split (== '.') nm)
 
@@ -48,12 +51,17 @@ setDEValids = setValids setDE
 setDEValue :: T.Text -> T.Text -> DE -> DE
 setDEValue = setValue setDE
 
-setSEGValids :: T.Text -> [T.Text] -> SEGItem -> SEGItem
-setSEGValids = setValids setSEGItem
+setSEGItemValids :: T.Text -> [T.Text] -> SEGItem -> SEGItem
+setSEGItemValids = setValids setSEGItem
 
-setSEGValue :: T.Text -> T.Text -> SEGItem -> SEGItem
-setSEGValue = setValue setSEGItem
+setSEGItemValue :: T.Text -> T.Text -> SEGItem -> SEGItem
+setSEGItemValue = setValue setSEGItem
 
+setSEGValue :: T.Text -> T.Text -> SEG -> SEG
+setSEGValue = setValue setSEG
+
+
+{-
 setSF :: (DE -> DE) -> [T.Text] -> SF -> SF
 setSF f nms sf@(SF _ _ items) = sf { sfItems = map go items }
   where
@@ -65,6 +73,7 @@ setSF f nms sf@(SF _ _ items) = sf { sfItems = map go items }
 
 setSFValue :: T.Text -> T.Text -> SF -> SF
 setSFValue = setValue setSF
+-}
 
 err :: Maybe Line -> T.Text -> Either T.Text a
 err (Just l) msg = Left $ T.pack (show l) <> ": " <> msg
@@ -146,15 +155,15 @@ elemToSEG degs (Element nm attrs ctnt line) = do
   checkName "SEGdef" nm line
   id_ <- getRequiredAttr line "SEGdef" "id" attrs
   items <- foldM f [] (onlyElems ctnt)
-  return (id_, SEG "" (findRequestTag attrs) (reverse items))
+  return (id_, SEG "" (findRequestTag attrs) 0 Nothing (reverse items))
   where
     f items e | qName (elName e) == "DE"     = (:items) . DEItem <$> elemToDE e
     f items e | qName (elName e) == "DEG"    = let (refNm, minnum, maxnum) = getCommonAttrsWDefault (elAttribs e)
                                                in do tp <- getRequiredAttr line (T.pack (qName (elName e))) "type" (elAttribs e)
                                                      (DEG _ _ _ des) <- getReferencedItem "DEG" (elLine e) degs tp
                                                      return $ DEGItem (DEG refNm minnum maxnum des) : items
-    f items e | qName (elName e) == "valids" = (\(x,y) -> map (setSEGValids x y) items) <$> elemToValids e
-    f items e | qName (elName e) == "value"  = (\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e
+    f items e | qName (elName e) == "valids" = (\(x,y) -> map (setSEGItemValids x y) items) <$> elemToValids e
+    f items e | qName (elName e) == "value"  = (\(x,y) -> map (setSEGItemValue x y) items) <$> elemToValue e
     f _     e                                = err (elLine e) ("Unexpected element while processing SEGdef: " <> T.pack (qName (elName e)))
 
 -- The way SFs and SEGs are represented is not really consistent with
@@ -174,34 +183,33 @@ elemToSEG degs (Element nm attrs ctnt line) = do
 -- by HBCI.
 --
 -- For now I have chosen a really simple representation which might be
--- to simple in some cases. minums and maxnums are only available on
--- SFs and not on SEGs. SEGs are represented as SFs with a single item
--- and the minnums and maxnums are relaxed when an SF is referenced.
+-- too simple in some cases. There are no SFs, these are just lists of
+-- SEGs and the minnums and maxnums live directly within the SEGs.
 -- This might be too simplistic in some cases, I'll fix that if it
 -- turns out to be the case.
-elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text [SF]
+elemToSFItem :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> Element -> Either T.Text [SEG]
 elemToSFItem segs sfs (Element nm attrs _ line) = do
   type_ <- getRequiredAttr line (T.pack (qName nm)) "type" attrs
   let (name, minnum, maxnum) = getCommonAttrsWDefault attrs
   if (qName nm == "SF")
   then getReferencedItem "SF" line sfs type_ >>= return . map (updateMinMax minnum maxnum)
   else if (qName nm == "SEG")
-       then getReferencedItem "SEG" line segs type_ >>= \(SEG _ tag items) -> return $ [SF minnum maxnum [SEG name tag items]]
+       then getReferencedItem "SEG" line segs type_ >>= \(SEG _ tag _ _ items) -> return [SEG name tag minnum maxnum items]
        else err line ("Not a SF or SEG: " <> T.pack (qName nm))
   where
-    updateMinMax outerMin outerMax (SF innerMin innerMax items) =
+    updateMinMax outerMin outerMax seg@(SEG _ _ innerMin innerMax _) =
       let newMin = min innerMin outerMin
           newMax = max <$> innerMax <*> outerMax
-      in SF newMin newMax items
+      in seg { segMinNum = newMin, segMaxNum = newMax }
 
-elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text (T.Text, [SF])
+elemToSF :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> Element -> Either T.Text (T.Text, [SEG])
 elemToSF segs sfs (Element nm attrs ctnt line) =  do
   checkName "SFdef" nm line
   id_ <- getRequiredAttr line "SFdef" "id" attrs
   items <- concat <$> traverse (elemToSFItem segs sfs) (onlyElems ctnt)
   return $ (id_, items)
 
-elemToMSG :: M.Map T.Text SEG -> M.Map T.Text [SF] -> Element -> Either T.Text (T.Text, MSG)
+elemToMSG :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> Element -> Either T.Text (T.Text, MSG)
 elemToMSG segs sfs (Element nm attrs ctnt line) = do
   checkName "MSGdef" nm line
   id_ <- getRequiredAttr line "MSGdef" "id" attrs
@@ -211,7 +219,7 @@ elemToMSG segs sfs (Element nm attrs ctnt line) = do
   return $ (id_, MSG reqSig reqCrypt items)
   where
     f items e | qName (elName e) == "SF" || qName (elName e) == "SEG" = (items ++) <$> elemToSFItem segs sfs e
-    f items e | qName (elName e) == "value"                           = (\(x,y) -> map (setSFValue x y) items) <$> elemToValue e
+    f items e | qName (elName e) == "value"                           = (\(x,y) -> map (setSEGValue x y) items) <$> elemToValue e
     f _     e                                                         = err (elLine e) ("Unexpected element while processing MSGdef: " <> T.pack (qName (elName e)))
 
 getXml :: String -> IO [Content]
@@ -232,12 +240,12 @@ getDEGs = foldM f M.empty . getChildrenByName "DEGs"
 getSEGs :: M.Map T.Text DEG -> [Content] -> Either T.Text (M.Map T.Text SEG)
 getSEGs degs ctnt = M.fromList <$> mapM (elemToSEG degs) (getChildrenByName "SEGs" ctnt)
 
-getSFs :: M.Map T.Text SEG -> [Content] -> Either T.Text (M.Map T.Text [SF])
+getSFs :: M.Map T.Text SEG -> [Content] -> Either T.Text (M.Map T.Text [SEG])
 getSFs segs ctnt = foldM f M.empty $ getChildrenByName "SFs" ctnt
   where
     f sfs e = elemToSF segs sfs e >>= \(id_, sf) -> return (M.insert id_ sf sfs)
 
-getMSGs :: M.Map T.Text SEG -> M.Map T.Text [SF] -> [Content] -> Either T.Text (M.Map T.Text MSG)
+getMSGs :: M.Map T.Text SEG -> M.Map T.Text [SEG] -> [Content] -> Either T.Text (M.Map T.Text MSG)
 getMSGs segs sfs ctnt = M.fromList <$> mapM (elemToMSG segs sfs) (getChildrenByName "MSGs" ctnt)
 
 getMSGfromXML :: [Content] -> Either T.Text (M.Map T.Text MSG)

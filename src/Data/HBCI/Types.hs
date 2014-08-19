@@ -4,6 +4,7 @@ module Data.HBCI.Types where
 -- import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
+import qualified Data.Map as M
 import           Text.PrettyPrint
 
 
@@ -32,14 +33,21 @@ data SEGItem = DEItem DE
              | DEGItem DEG
              deriving (Eq, Show)
 
-data SEG = SEG { segName :: T.Text, needsRequestTag :: Bool, segItems :: [SEGItem] }
+data SEG = SEG { segName :: T.Text, needsRequestTag :: Bool, segMinNum :: Int, segMaxNum :: Maybe Int, segItems :: [SEGItem] }
          deriving (Eq, Show)
 
-data SF = SF { sfMinNum :: Int, sfMaxNum :: Maybe Int, sfItems :: [SEG] }
-        deriving (Eq, Show)
+-- data SF = SF { sfMinNum :: Int, sfMaxNum :: Maybe Int, sfItems :: [SEG] }
+--         deriving (Eq, Show)
 
-data MSG = MSG { msgRequiresSignature :: Bool, msgRequiresEncryption :: Bool, msgItems :: [SF] }
+data MSG = MSG { msgRequiresSignature :: Bool, msgRequiresEncryption :: Bool, msgItems :: [SEG] }
          deriving (Eq, Show)
+
+data DEGEntry = DEentry !DEValue
+              | DEGentry (M.Map T.Text DEValue)
+
+type SEGEntry = M.Map T.Text DEGEntry
+
+type MSGEntry = M.Map T.Text SEGEntry
 
 data BankProperties = BankProperties { bankName :: !T.Text
                                      , bankCity :: !T.Text
@@ -92,10 +100,10 @@ instance HbciPretty SEGItem where
   toDoc (DEGItem deg) = text "(DEGItem " <> toDoc deg <> char ')'
 
 instance HbciPretty SEG where
-  toDoc (SEG nm tag items) = text "(SEG" <+> text (show nm) <+> text (show tag) <+> toDoc items <> char ')'
+  toDoc (SEG nm tag minnum maxnum items) = text "(SEG" <+> text (show nm) <+> text (show tag) <+> toDoc minnum <+> toDoc maxnum <+> toDoc items <> char ')'
 
-instance HbciPretty SF where
-  toDoc (SF minNum maxNum items) = text "(SF" <+> text (show minNum) <+> toDoc maxNum <+> toDoc items <> char ')'
+-- instance HbciPretty SF where
+--   toDoc (SF minNum maxNum items) = text "(SF" <+> text (show minNum) <+> toDoc maxNum <+> toDoc items <> char ')'
 
 instance HbciPretty MSG where
   toDoc (MSG sig enc items) = text "(MSG" <+> text (show sig) <+> text (show enc) <+> toDoc items <> char ')'

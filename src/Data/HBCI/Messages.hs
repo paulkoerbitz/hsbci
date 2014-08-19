@@ -4,10 +4,10 @@ module Data.HBCI.Messages where
 import           Control.Applicative ((<$>))
 import           Control.Arrow (second)
 import           Control.Monad (foldM)
-import           Control.Monad.State (StateT, evalStateT, get, modify, put, runStateT)
+import           Control.Monad.State (StateT, evalStateT, get, modify)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
-import           Data.Either (partitionEithers)
+import           Data.Either (partitionEithers, rights)
 import           Data.Monoid ((<>))
 import qualified Data.Map  as M
 import           Data.Maybe (isJust, fromJust)
@@ -51,64 +51,65 @@ updateSize (DEBinary b) = let lengthBody   = BS.length b
                               lengthHeader = 2 + length (show lengthBody)
                           in modify (\x -> x { msgSize = msgSize x + lengthBody + lengthHeader }) >> lift (Right (DEBinary b))
 
-fillDe :: M.Map T.Text DEValue -> T.Text -> DE -> FillRes DEValue
-fillDe _        _      (DEval v)                                = updateSize $! v
-fillDe _        _      (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
+fillDe :: Maybe DEValue -> DE -> FillRes DEValue
+fillDe _ (DEval v)                                = updateSize $! v
+fillDe _ (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
   MkFillState _ seqNum  <- get
   updateSize $! DEStr $! T.pack $! show seqNum
-fillDe userVals prefix (DEdef deNm deTp minSz maxSz minNum _ valids) =
-  let key = concatPrefix prefix deNm
-      mval = M.lookup key userVals
-  in case (isBinaryType deTp, mval) of
-    (_, Nothing) -> if minNum == 0 then return (DEStr "") else lift $ Left $ "Required key '" <> key <> "' missing in userVals"
-    (True,  Just (DEBinary b)) -> return (DEBinary b)
-    (True,  Just _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must be binary"
-    (False, Just (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
-                                  then (escape <$> lift (checkSize key deTp minSz maxSz s)) >>= updateSize . DEStr
-                                  else lift $! Left $! "Value '" <> s <> "' for key '" <> key <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
-    (False, Just _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must not be binary"
+fillDe Nothing (DEdef deNm _ _ _ minNum _ _)    = if minNum == 0 then return (DEStr "") else lift $ Left $ "Required deName '" <> deNm <> "' missing in entries"
+fillDe (Just val) (DEdef deNm deTp minSz maxSz _ _ valids) =
+  case (isBinaryType deTp, val) of
+    (True,  (DEBinary b)) -> return (DEBinary b)
+    (True,  _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must be binary"
+    (False, (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
+                             then (escape <$> lift (checkSize deNm deTp minSz maxSz s)) >>= updateSize . DEStr
+                             else lift $! Left $! "Value '" <> s <> "' for deName '" <> deNm <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
+    (False, _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must not be binary"
 
 
-fillSeg :: M.Map T.Text DEValue -> SEG -> FillRes SEGValue
-fillSeg userVals (SEG segNm _ items) = do
-  res <- traverse (fillSegItem userVals segNm) items
-  -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
-  modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
-  return res
+fillSegItem :: SEGEntry -> SEGItem -> FillRes DEGValue
+fillSegItem entries (DEItem de)                             =
+  case M.lookup (deName de) entries of
+    Just (DEGentry _)      -> lift $! Left $! "Expected 'DEentry' for DE '" <> deName de <> "' but found DEGentry"
+    Nothing                -> (:[]) <$> fillDe Nothing de
+    Just (DEentry deEntry) -> (:[]) <$> fillDe (Just deEntry) de
+fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
+  case M.lookup degnm entries of
+    Nothing -> if minnum == 0 then return [] else lift $! Left $! "No entries for required DEG '" <> degnm <> "' found"
+    Just (DEentry _) -> lift $! Left $! "Expected 'DEGentry' for DEG '" <> degnm <> "' but found DEentry"
+    Just (DEGentry degentries) -> do
+      modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
+      traverse (\de -> fillDe (M.lookup (deName de) degentries) de) degitems
 
-fillSegItem :: M.Map T.Text DEValue -> T.Text -> SEGItem -> FillRes DEGValue
-fillSegItem userVals = go
-  where
-    go prefix (DEItem de)                        = (:[]) <$> fillDe userVals prefix de
-    go prefix (DEGItem (DEG degnm minnum _ degitems)) =
-      let newPrefix = concatPrefix prefix degnm
-          n         = max (length degitems - 1) 0 -- number of : between DEs
-      in do state <- get
-            case runStateT (traverse (fillDe userVals newPrefix) degitems) state of
-              Left err            -> if minnum == 0 then return [] else lift (Left err)
-              Right (res, state') -> (put state' >> modify (\x -> x { msgSize = msgSize x + n }) >> lift (Right res))
-    --     modify (\x -> x { msgSize = msgSize x + n })
-    --     traverse (fillDe userVals newPrefix) degitems
+fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
+fillSeg entries (SEG segNm _tag minnum _ items) =
+  case M.lookup segNm entries of
+    Nothing -> if minnum == 0 then return [] else lift $! Left $! "No entries for required SEG '" <> segNm <> "' found"
+    Just segEntries -> do
+      res <- traverse (fillSegItem segEntries) items
+      -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
+      modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
+      return res
 
-fillMsg :: M.Map T.Text DEValue -> MSG -> Either T.Text MSGValue
-fillMsg userVals (MSG _reqSig _reqEnc items) =
-  evalStateT ((concat <$> traverse fillSf items) >>= replaceMsgSize) (MkFillState 0 1)
+fillMsg :: MSGEntry -> MSG -> Either T.Text MSGValue
+fillMsg entries (MSG _reqSig _reqEnc items) =
+  evalStateT (traverse (fillSeg entries') items >>= replaceMsgSize) (MkFillState 0 1)
   where
     replaceMsgSize ((head:[DEStr "000000000000"]:xs):ys) = do
       MkFillState sz _ <- get
       return ((head:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
     replaceMsgSize _ = lift $! Left "Didn't find expected field message size"
 
-    userVals' = M.insert "MsgHead.msgsize" (DEStr "000000000000") userVals
+    entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
 
     -- This is a hack that is really not very pretty - the whole thing should
     -- really be properly refactored
-    fillSf :: SF -> FillRes MSGValue
-    fillSf (SF minnum _ items) = do
-      state <- get
-      case runStateT (traverse (fillSeg userVals') items) state of
-        Left err  -> if minnum == 0 then return [] else lift (Left err)
-        Right (res, state') -> (put state' >> lift (Right res))
+    -- fillSf :: SEG -> FillRes MSGValue
+    -- fillSf (SEG nm tag minnum maxnum items) = do
+    --   state <- get
+    --   case runStateT (traverse (fillSeg userVals') items) state of
+    --     Left err  -> if minnum == 0 then return [] else lift (Left err)
+    --     Right (res, state') -> (put state' >> lift (Right res))
 
 
 -- FIXME: A use case for lenses(?)
@@ -117,8 +118,8 @@ getValHead ((DEStr hd:_:DEStr vers:_):_) = Right (hd, vers)
 getValHead _                             = Left "Required element MsgHead not found"
 
 getDefHead :: SEG -> Either T.Text (T.Text, T.Text)
-getDefHead (SEG _ _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_:DEval (DEStr vers):_)):_)) = Right (hd, vers)
-getDefHead _                                                                           = Left "getDefHead: head not found"
+getDefHead (SEG _ _ _ _ (DEGItem (DEG _ _ _ (DEval (DEStr hd):_:DEval (DEStr vers):_)):_)) = Right (hd, vers)
+getDefHead _                                                                               = Left "getDefHead: head not found"
 
 checkMinnum :: Int -> T.Text -> MSGValue -> Either T.Text (MSGValue, [a])
 checkMinnum minnum segNm vals = if minnum > 0
@@ -156,13 +157,11 @@ extractSeg defs segVal = do
                    in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
 
 findSegDefs :: MSG -> M.Map T.Text SEG
-findSegDefs (MSG _ _ sfs) = M.fromList $! foldr f [] sfs
+findSegDefs (MSG _ _ segs) = M.fromList $! rights $! f <$> segs
   where
-    f (SF _ _ (seg:_)) acc =
-      case getDefHead seg of
-        Right (hd, version) -> (hd <> "-" <> version, seg) : acc
-        Left _              -> acc
-    f _                acc = acc
+    f seg = case getDefHead seg of
+      Right (hd, version) -> Right (hd <> "-" <> version, seg)
+      Left x              -> Left x
 
 extractMsg :: MSG -> MSGValue -> ([T.Text], [(T.Text, DEValue)])
 extractMsg msgDef msgVal =
