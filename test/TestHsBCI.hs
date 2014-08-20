@@ -360,7 +360,7 @@ fillDeTests =
       assertEq (Right (DEStr "abc"))
       (testF (Just (DEStr "abc")) (DEdef "deKey0.deKey1" AN 0 Nothing 0 Nothing Nothing))
     , testCase "fillDe gives error if name is outside of valids" $
-      assertEq (Left "Value 'abc' for key 'deKey' not in valid values '[\"ab\",\"c\",\"ac\"]'")
+      assertEq (Left "Value 'abc' for DE 'deKey' not in valid values '[\"ab\",\"c\",\"ac\"]'")
       (testF (Just (DEStr "abc")) (DEdef "deKey" AN 0 Nothing 0 Nothing (Just ["ab", "c", "ac"])))
     , testCase "AN replacement results in string" $
       assertEq (Right (DEStr "abc0123"))
@@ -428,11 +428,11 @@ fillMsgTests =
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "HNHBK")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
-    , testCase "One item message -- missing item" $
-      assertEq (Left "Required key 'seg1.de1' missing in userVals")
+    , testCase "One item message -- No entries for equired SEG" $
+      assertEq (Left "No entries for required SEG 'seg1' found")
                (fillMsg
                 M.empty
-                (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
+                (MSG False False [SEG "seg1" False 1 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- missing msgsize field" $
       assertEq (Left "Didn't find expected field message size")
                (fillMsg
@@ -451,7 +451,7 @@ fillMsgTests =
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value outside of valids" $
-      assertEq (Left "Value '3' for key 'MsgHead.de1' not in valid values '[\"1\",\"2\"]'")
+      assertEq (Left "Value '3' for DE 'de1' not in valid values '[\"1\",\"2\"]'")
                (fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "3")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
@@ -479,7 +479,8 @@ fullMsgGenTests =
   [ testGroup "Test full generation of HBCI messages"
     [ testCase "DialogInitAnon" $
       let vals =
-            M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
+            M.fromList [("SeagHead", M.empty)
+                       ,("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
                        ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
                                                 ,("UPD", DEentry $ DEStr "0")
                                                 ,("lang", DEentry $ DEStr "0")

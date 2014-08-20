@@ -56,21 +56,25 @@ fillDe _ (DEval v)                                = updateSize $! v
 fillDe _ (DEdef deNm _ _ _ _ _ _) | deNm == "seq" = do
   MkFillState _ seqNum  <- get
   updateSize $! DEStr $! T.pack $! show seqNum
-fillDe Nothing (DEdef deNm _ _ _ minNum _ _)    = if minNum == 0 then return (DEStr "") else lift $ Left $ "Required deName '" <> deNm <> "' missing in entries"
+fillDe Nothing (DEdef deNm _ _ _ minNum _ _)    = if minNum == 0 then return (DEStr "") else lift $ Left $ "Required DE '" <> deNm <> "' missing in entries"
 fillDe (Just val) (DEdef deNm deTp minSz maxSz _ _ valids) =
   case (isBinaryType deTp, val) of
     (True,  (DEBinary b)) -> return (DEBinary b)
     (True,  _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must be binary"
     (False, (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
                              then (escape <$> lift (checkSize deNm deTp minSz maxSz s)) >>= updateSize . DEStr
-                             else lift $! Left $! "Value '" <> s <> "' for deName '" <> deNm <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
+                             else lift $! Left $! "Value '" <> s <> "' for DE '" <> deNm <> "' not in valid values '" <> T.pack (show (fromJust valids)) <> "'"
     (False, _           ) -> lift $! Left $! "Value for DE " <> deNm <> " must not be binary"
 
+isDeVal :: DE -> Bool
+isDeVal (DEval _) = True
+isDeVal _         = False
 
 fillSegItem :: SEGEntry -> SEGItem -> FillRes DEGValue
-fillSegItem entries (DEItem de)                             =
-  case M.lookup (deName de) entries of
-    Just (DEGentry _)      -> lift $! Left $! "Expected 'DEentry' for DE '" <> deName de <> "' but found DEGentry"
+fillSegItem _       (DEItem de@(DEval _))                   = (:[]) <$> fillDe Nothing de
+fillSegItem entries (DEItem de@(DEdef deNm _ _ _ _ _ _))    =
+  case M.lookup deNm entries of
+    Just (DEGentry _)      -> lift $! Left $! "Expected 'DEentry' for DE '" <> deNm <> "' but found DEGentry"
     Nothing                -> (:[]) <$> fillDe Nothing de
     Just (DEentry deEntry) -> (:[]) <$> fillDe (Just deEntry) de
 fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
@@ -79,7 +83,8 @@ fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
     Just (DEentry _) -> lift $! Left $! "Expected 'DEGentry' for DEG '" <> degnm <> "' but found DEentry"
     Just (DEGentry degentries) -> do
       modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
-      traverse (\de -> fillDe (M.lookup (deName de) degentries) de) degitems
+      traverse (\de -> if isDeVal de then fillDe Nothing de else fillDe (M.lookup (deName de) degentries) de) degitems
+
 
 fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
 fillSeg entries (SEG segNm _tag minnum _ items) =

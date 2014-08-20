@@ -37,7 +37,11 @@ setSEGItem f nms (DEGItem deg@(DEG degNm minnum maxnum des)) =
      else (DEGItem deg)
 
 setSEG :: (DE -> DE) -> [T.Text] -> SEG -> SEG
-setSEG f nms seg = seg { segItems = setSEGItem f nms <$> segItems seg }
+setSEG f nms seg@(SEG segNm _ _ _ items) =
+  let segNms           = if T.null segNm then [] else T.split (== '.') segNm
+      n                = length segNms
+      (nmsPre,nmsSuff) = splitAt n nms
+  in if segNms == nmsPre then seg { segItems = setSEGItem f nmsSuff <$> items } else seg
 
 setValids :: ((DE -> DE) -> [T.Text] -> a -> a) -> T.Text -> [T.Text] -> a -> a
 setValids f nm valids = f (\de -> de { deValids = Just valids }) (T.split (== '.') nm)
@@ -155,7 +159,7 @@ elemToSEG degs (Element nm attrs ctnt line) = do
   checkName "SEGdef" nm line
   id_ <- getRequiredAttr line "SEGdef" "id" attrs
   items <- foldM f [] (onlyElems ctnt)
-  return (id_, SEG "" (findRequestTag attrs) 0 Nothing (reverse items))
+  return (id_, SEG "" (findRequestTag attrs) 1 (Just 1) (reverse items))
   where
     f items e | qName (elName e) == "DE"     = (:items) . DEItem <$> elemToDE e
     f items e | qName (elName e) == "DEG"    = let (refNm, minnum, maxnum) = getCommonAttrsWDefault (elAttribs e)
