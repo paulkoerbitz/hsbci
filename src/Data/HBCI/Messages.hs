@@ -164,3 +164,15 @@ findSegDefs (MSG _ _ segs) = M.fromList $! rights $! f <$> segs
 extractMsg :: MSG -> MSGValue -> ([T.Text], [(T.Text, DEValue)])
 extractMsg msgDef msgVal =
   second concat $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal
+
+nestedInsert :: [T.Text] -> DEValue -> MSGEntry -> Either T.Text MSGEntry
+nestedInsert keys@[segName,degName,deName] v entries =
+  let segMap = maybe M.empty id $ M.lookup segName entries
+      degMap = maybe (DEGentry M.empty) id $ M.lookup degName segMap
+  in case degMap of
+    DEentry _        -> Left $! "nestedInsert: error while trying to insert " <> T.pack (show keys) <> ": expected DEGentry, found DEentry"
+    DEGentry degMap' -> Right $! M.insert segName (M.insert degName (DEGentry $! M.insert deName v degMap') segMap) entries
+nestedInsert [segName,deName]              v entries =
+  let segMap = maybe M.empty id $ M.lookup segName entries
+  in Right $! M.insert segName (M.insert deName (DEentry v) segMap) entries
+nestedInsert names                         _ _       = Left $! "nestedInsert: Invalid name sequence: " <> T.pack (show names)

@@ -18,13 +18,15 @@ import           Data.HBCI.Messages
 import           Data.HBCI.Gen
 import           Data.HBCI.Parser
 
-msgVals :: M.Map T.Text DEValue
-msgVals = M.fromList [("Idn.country", DEStr "280")
-                     ,("BPD", DEStr "0")
-                     ,("UPD", DEStr "0")
-                     ,("lang", DEStr "0")
-                     ,("prodName", DEStr "HsBCI")
-                     ,("prodVersion", DEStr "0.1")]
+msgVals :: MSGEntry
+msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
+                     ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
+                                              ,("UPD", DEentry $ DEStr "0")
+                                              ,("lang", DEentry $ DEStr "0")
+                                              ,("prodName", DEentry $ DEStr "HsBCI")
+                                              ,("prodVersion", DEentry $ DEStr "0.1.0")
+                                              ])
+                     ]
 
 main :: IO ()
 main = do
@@ -37,10 +39,7 @@ main = do
     Left err -> TIO.putStrLn err
     Right defs -> do
       dialogInitAnonDef <- maybe (putStrLn "Error: Can't find 'DialogInitAnon'" >> exitFailure) return (M.lookup "DialogInitAnon" defs)
-      let msgVals' = M.insert "Idn.blz" (DEStr blz) msgVals
-          -- msg' = gen <$> fillMsg msgVals' dialogInitAnonDef
-          msg' = Right "HNHBK:1:3:+000000000108+220+0+1'HKIDN:2:2+280:12030000+9999999999+0+0'HKVVB:3:2+0+0+0+HsBCI+1.0'HNHBS:4:1+1'"
-                       -- "HNHBK:1:3+000000000111+220+0+1'HKIDN:2:2+280:12030000+9999999999+0+0'HKVVB:3:2+0+0+0+HBCI4Java+2.5'HNHBS:4:1+1'"
+      let msg' = nestedInsert ["Idn","KIK","blz"] (DEStr blz) msgVals >>= (\x -> gen <$> fillMsg x dialogInitAnonDef)
       case msg' of
         Left err -> TIO.putStrLn ("ERROR: " <> err) >> exitFailure
         Right msg -> do
