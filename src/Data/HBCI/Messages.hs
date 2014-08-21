@@ -10,7 +10,7 @@ import qualified Data.ByteString as BS
 import           Data.Either (partitionEithers, rights)
 import           Data.Monoid ((<>))
 import qualified Data.Map  as M
-import           Data.Maybe (isJust, fromJust)
+import           Data.Maybe (isJust, fromJust, isNothing)
 import qualified Data.Text as T
 import           Data.Traversable (traverse)
 
@@ -79,7 +79,10 @@ fillSegItem entries (DEItem de@(DEdef deNm _ _ _ _ _ _))    =
     Just (DEentry deEntry) -> (:[]) <$> fillDe (Just deEntry) de
 fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
   case M.lookup degnm entries of
-    Nothing -> if minnum == 0 then return [] else lift $! Left $! "No entries for required DEG '" <> degnm <> "' found"
+    Nothing -> if minnum == 0
+               then return []
+               else do modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
+                       traverse (fillDe Nothing) degitems
     Just (DEentry _) -> lift $! Left $! "Expected 'DEGentry' for DEG '" <> degnm <> "' but found DEentry"
     Just (DEGentry degentries) -> do
       modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
@@ -87,14 +90,14 @@ fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
 
 
 fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
-fillSeg entries (SEG segNm _tag minnum _ items) =
-  case M.lookup segNm entries of
-    Nothing -> if minnum == 0 then return [] else lift $! Left $! "No entries for required SEG '" <> segNm <> "' found"
-    Just segEntries -> do
-      res <- traverse (fillSegItem segEntries) items
-      -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
-      modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
-      return res
+fillSeg entries (SEG segNm _tag minnum _ items) = do
+  let segEntries = M.lookup segNm entries
+  if (isNothing segEntries && minnum == 0)
+    then return []
+    else do res <- traverse (fillSegItem (maybe M.empty id segEntries)) items
+            -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
+            modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
+            return res
 
 fillMsg :: MSGEntry -> MSG -> Either T.Text MSGValue
 fillMsg entries (MSG _reqSig _reqEnc items) =
@@ -106,16 +109,6 @@ fillMsg entries (MSG _reqSig _reqEnc items) =
     replaceMsgSize _ = lift $! Left "Didn't find expected field message size"
 
     entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
-
-    -- This is a hack that is really not very pretty - the whole thing should
-    -- really be properly refactored
-    -- fillSf :: SEG -> FillRes MSGValue
-    -- fillSf (SEG nm tag minnum maxnum items) = do
-    --   state <- get
-    --   case runStateT (traverse (fillSeg userVals') items) state of
-    --     Left err  -> if minnum == 0 then return [] else lift (Left err)
-    --     Right (res, state') -> (put state' >> lift (Right res))
-
 
 -- FIXME: A use case for lenses(?)
 getValHead :: SEGValue -> Either T.Text (T.Text, T.Text)

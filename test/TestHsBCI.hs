@@ -429,7 +429,7 @@ fillMsgTests =
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- No entries for equired SEG" $
-      assertEq (Left "No entries for required SEG 'seg1' found")
+      assertEq (Left "Required DE 'de1' missing in entries")
                (fillMsg
                 M.empty
                 (MSG False False [SEG "seg1" False 1 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
