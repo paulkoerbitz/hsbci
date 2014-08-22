@@ -7,7 +7,7 @@ import           Control.Monad (foldM)
 import           Control.Monad.State (StateT, evalStateT, get, modify)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
-import           Data.Either (partitionEithers, rights)
+import           Data.Either (partitionEithers, rights, lefts)
 import           Data.Monoid ((<>))
 import qualified Data.Map  as M
 import           Data.Maybe (isJust, fromJust, isNothing)
@@ -145,21 +145,28 @@ validateAndExtractSegItem prefix (DEGItem (DEG degNm _minNum _maxNum des)) deval
   in concat <$> mapM (uncurry $ validateAndExtractSegItem prefix') items
 validateAndExtractSegItem prefix _ _ = Left $ "Unexpected deval when trying to process segment '" <> prefix <> "'"
 
-extractSeg :: M.Map T.Text SEG -> SEGValue -> Either T.Text [(T.Text, DEValue)]
-extractSeg defs segVal = do
+extractSeg :: ([SEG], M.Map T.Text SEG) -> SEGValue -> Either T.Text [(T.Text, DEValue)]
+extractSeg (tmplDefs, defs) segVal = do
   valHd <- getValHead segVal
   case M.lookup (fst valHd <> "-" <> snd valHd) defs of
-    Nothing -> Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd
-    Just segDef -> let items = segItems segDef
-                       prefix = segName segDef
-                   in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
-
-findSegDefs :: MSG -> M.Map T.Text SEG
-findSegDefs (MSG _ _ segs) = M.fromList $! rights $! f <$> segs
+    Just segDef -> f segDef
+    Nothing -> foldr (\x acc -> acc `alt` x) (Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd) (f <$> tmplDefs)
   where
+    f segDef = let items = segItems segDef
+                   prefix = segName segDef
+               in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
+
+    alt (Left _) y    = y
+    alt x@(Right _) _ = x
+
+findSegDefs :: MSG -> ([SEG], M.Map T.Text SEG)
+findSegDefs (MSG _ _ segs) = (lefts $! segDefs, M.fromList $! rights $! segDefs)
+  where
+    segDefs = f <$> segs
+
     f seg = case getDefHead seg of
       Right (hd, version) -> Right (hd <> "-" <> version, seg)
-      Left x              -> Left x
+      Left _              -> Left seg
 
 extractMsg :: MSG -> MSGValue -> ([T.Text], [(T.Text, DEValue)])
 extractMsg msgDef msgVal =
