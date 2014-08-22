@@ -19,7 +19,7 @@ import           Data.HBCI.Gen
 import           Data.HBCI.Parser
 
 msgVals :: MSGEntry
-msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
+msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280")])])
                      ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
                                               ,("UPD", DEentry $ DEStr "0")
                                               ,("lang", DEentry $ DEStr "0")
