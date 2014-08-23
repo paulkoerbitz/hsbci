@@ -2,7 +2,9 @@
 module Main where
 
 import           Control.Applicative ((<$>))
+import           Control.Monad (foldM)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Monoid ((<>))
@@ -28,29 +30,47 @@ msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("count
                                               ])
                      ]
 
+exitWMsg msg = TIO.putStrLn ("ERROR: " <> msg) >> exitFailure
+
+sendMsg :: BankProperties -> BS.ByteString -> IO BS.ByteString
+sendMsg props msg = do
+  request' <- parseUrl $ T.unpack $ bankPinTanUrl props
+  let request = request' { method = "POST"
+                         , requestHeaders = ("Content-Type", "application/octet-stream"): requestHeaders request'
+                         , requestBody = RequestBodyBS $ B64.encode msg
+                         }
+  response <- withManager $ httpLbs request
+  return $! B64.decodeLenient $! BS.concat $! LBS.toChunks $! responseBody response
+
+fromEither :: Either T.Text a -> IO a
+fromEither = either exitWMsg return
+
 main :: IO ()
 main = do
-  bankProps <- getBankPropsFromFile "resources/blz.properties" >>= either (\err -> TIO.putStrLn err >> exitFailure) return
   putStrLn "Please enter your BLZ:"
   blz <- T.pack <$> getLine
+
+  putStrLn "Please enter your User ID:"
+  userID <- T.pack <$> getLine
+
+  putStrLn "Please enter your PIN:"
+  pin <- T.pack <$> getLine
+
+  bankProps <- getBankPropsFromFile "resources/blz.properties" >>= either (\err -> TIO.putStrLn err >> exitFailure) return
   props <- maybe (TIO.putStrLn ("Unknown BLZ: " <> blz) >> exitFailure) return (M.lookup blz bankProps)
-  hbciDef <- getXml ("resources/hbci-" <> (T.unpack $ bankPinTanVersion props) <> ".xml") >>= return . getMSGfromXML
-  case hbciDef of
-    Left err -> TIO.putStrLn err
-    Right defs -> do
-      dialogInitAnonDef <- maybe (putStrLn "Error: Can't find 'DialogInitAnon'" >> exitFailure) return (M.lookup "DialogInitAnon" defs)
-      let msg' = nestedInsert ["Idn","KIK","blz"] (DEStr blz) msgVals >>= (\x -> gen <$> fillMsg x dialogInitAnonDef)
-      case msg' of
-        Left err -> TIO.putStrLn ("ERROR: " <> err) >> exitFailure
-        Right msg -> do
-          BS.putStrLn $ "Message to be sent:\n" <> msg
-          request' <- parseUrl $ T.unpack $ bankPinTanUrl props
-          let request = request' { method = "POST"
-                                 , requestHeaders = ("Content-Type", "application/octet-stream"): requestHeaders request'
-                                 , requestBody = RequestBodyBS $ B64.encode msg
-                                 }
-          response <- withManager $ httpLbs request
-          case (M.lookup "DialogInitAnonRes" defs, parser $ B64.decodeLenient $ BS.concat $ LBS.toChunks $ responseBody response) of
-            (Nothing     , _ )             -> putStrLn "ERROR: Can't find 'DialogInitAnonRes' in definitions" >> exitFailure
-            (Just _      , Left err)       -> TIO.putStrLn ("ERROR: Can't parse response: " <> err) >> exitFailure
-            (Just diarDef, Right parseRes) -> (putStrLn $ show $ extractMsg diarDef parseRes) >> exitSuccess
+  xml <- getXml ("resources/hbci-" <> (T.unpack $ bankPinTanVersion props) <> ".xml")
+  hbciDef <- either exitWMsg return $ getMSGfromXML xml
+
+  dialogInitAnonDef <- maybe (exitWMsg "Error: Can't find 'DialogInitAnon'") return $ M.lookup "DialogInitAnon" hbciDef
+  dialogInitAnonVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [(["Idn","KIK","blz"], blz)
+                                                                                                ,(["Idn","customerid"], userID)]
+  dialogInitAnonMsg <- fromEither $ gen <$> fillMsg dialogInitAnonVals dialogInitAnonDef
+
+  C8.putStrLn $ "Message to be send:\n" <> dialogInitAnonMsg
+  dialogInitAnonResponse <- sendMsg props dialogInitAnonMsg
+  C8.putStrLn $ "Message received:\n" <> dialogInitAnonResponse
+
+  dialogInitAnonResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitAnonRes'") return $ M.lookup "DialogInitAnonRes" hbciDef
+  initAnonRes <- fromEither $ return . extractMsg dialogInitAnonResDef =<< parser dialogInitAnonResponse
+  putStrLn $ show $ initAnonRes
+  exitSuccess
