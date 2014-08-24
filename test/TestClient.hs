@@ -72,5 +72,30 @@ main = do
 
   dialogInitAnonResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitAnonRes'") return $ M.lookup "DialogInitAnonRes" hbciDef
   initAnonRes <- fromEither $ return . extractMsg dialogInitAnonResDef =<< parser dialogInitAnonResponse
-  putStrLn $ show $ initAnonRes
+
+  dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
+  dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [(["Idn","KIK","blz"], blz)
+                                                                                            ,(["Idn","customerid"], userID)
+                                                                                             -- FIXME
+                                                                                            ,(["Idn","sysid"],      userID)
+                                                                                            ,(["Idn","sysStatus"], "0")
+                                                                                            ,(["SigHead", "secfunc"], "999")
+                                                                                            ,(["SigHead", "seccheckref"], "999")
+                                                                                            ,(["SigHead", "role"], "0")
+                                                                                            ,(["SigHead", "SecIdnDetails", ""], "0")
+                                                                                            ,(["SigHead", "secref"], "0")
+                                                                                            ,(["SigHead", "SecTimestamp", ""], "0")
+                                                                                            ,(["SigHead", "HashAlg", ""], "0")
+                                                                                            ,(["SigHead", "SigAlg", ""], "0")
+                                                                                            ]
+  dialogInitMsg <- fromEither $ gen <$> fillMsg dialogInitVals dialogInitDef
+
+  C8.putStrLn $ "Message to be send:\n" <> dialogInitMsg
+  dialogInitResponse <- sendMsg props dialogInitMsg
+  C8.putStrLn $ "Message received:\n" <> dialogInitResponse
+
+  dialogInitResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitRes'") return $ M.lookup "DialogInitRes" hbciDef
+  initRes <- fromEither $ return . extractMsg dialogInitResDef =<< parser dialogInitResponse
+
+  putStrLn $ show $ initRes
   exitSuccess
