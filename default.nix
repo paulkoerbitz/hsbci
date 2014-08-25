@@ -2,6 +2,7 @@
 let
   inherit (haskellPackages)
     cabal
+    cabalInstall
     httpConduit
     HUnit
     mtl
@@ -12,7 +13,8 @@ let
     vector
     xml
     base64Bytestring
-    prettyShow;
+    prettyShow
+    ghcMod;
 in
 
 cabal.mkDerivation (self: {
@@ -24,10 +26,11 @@ cabal.mkDerivation (self: {
   buildDepends = [
     httpConduit HUnit mtl testFramework testFrameworkHunit
     testFrameworkQuickcheck2 text vector xml prettyShow
+    ghcMod cabalInstall
   ];
   testDepends = [
     HUnit mtl testFramework testFrameworkHunit testFrameworkQuickcheck2
-    text vector xml prettyShow base64Bytestring
+    text vector xml prettyShow base64Bytestring cabalInstall
   ];
   meta = {
     description = "A fast, simple and modular HBCI library for Haskell";

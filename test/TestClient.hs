@@ -4,21 +4,21 @@ module Main where
 import           Control.Applicative ((<$>))
 import           Control.Monad (foldM)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Monoid ((<>))
 import qualified Data.Map as M
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Network.HTTP.Conduit
 import           System.Exit (exitSuccess, exitFailure)
 
-import           Data.HBCI.Types
+import           Data.HBCI.Gen
 import           Data.HBCI.HbciDef
 import           Data.HBCI.Messages
-import           Data.HBCI.Gen
 import           Data.HBCI.Parser
+import           Data.HBCI.Types
 
 msgVals :: MSGEntry
 msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280")])])
@@ -47,14 +47,17 @@ fromEither = either exitWMsg return
 
 main :: IO ()
 main = do
-  putStrLn "Please enter your BLZ:"
-  blz <- T.pack <$> getLine
-
-  putStrLn "Please enter your User ID:"
-  userID <- T.pack <$> getLine
-
-  putStrLn "Please enter your PIN:"
-  pin <- T.pack <$> getLine
+  let blz    = "12030000"
+  let userID = "123123"
+  let pin    = "12345"
+  -- putStrLn "Please enter your BLZ:"
+  -- blz <- T.pack <$> getLine
+  --
+  -- putStrLn "Please enter your User ID:"
+  -- userID <- T.pack <$> getLine
+  --
+  -- putStrLn "Please enter your PIN:"
+  -- pin <- T.pack <$> getLine
 
   bankProps <- getBankPropsFromFile "resources/blz.properties" >>= either (\err -> TIO.putStrLn err >> exitFailure) return
   props <- maybe (TIO.putStrLn ("Unknown BLZ: " <> blz) >> exitFailure) return (M.lookup blz bankProps)
@@ -66,12 +69,14 @@ main = do
                                                                                                 ,(["Idn","customerid"], userID)]
   dialogInitAnonMsg <- fromEither $ gen <$> fillMsg dialogInitAnonVals dialogInitAnonDef
 
-  C8.putStrLn $ "Message to be send:\n" <> dialogInitAnonMsg
+  -- C8.putStrLn $ "Message to be send:\n" <> dialogInitAnonMsg
   dialogInitAnonResponse <- sendMsg props dialogInitAnonMsg
-  C8.putStrLn $ "Message received:\n" <> dialogInitAnonResponse
+  -- C8.putStrLn $ "Message received:\n" <> dialogInitAnonResponse
 
   dialogInitAnonResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitAnonRes'") return $ M.lookup "DialogInitAnonRes" hbciDef
   initAnonRes <- fromEither $ return . extractMsg dialogInitAnonResDef =<< parser dialogInitAnonResponse
+  putStrLn $ show initAnonRes
+  exitSuccess
 
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
   dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [(["Idn","KIK","blz"], blz)
@@ -81,7 +86,7 @@ main = do
                                                                                             ,(["Idn","sysStatus"], "0")
                                                                                             ,(["SigHead", "secfunc"], "999")
                                                                                             ,(["SigHead", "seccheckref"], "999")
-                                                                                            ,(["SigHead", "role"], "0")
+                                                                                            ,(["SigHead", "role"], "1")
                                                                                             ,(["SigHead", "SecIdnDetails", ""], "0")
                                                                                             ,(["SigHead", "secref"], "0")
                                                                                             ,(["SigHead", "SecTimestamp", ""], "0")

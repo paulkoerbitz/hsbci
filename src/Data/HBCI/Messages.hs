@@ -1,18 +1,18 @@
-{-# LANGUAGE OverloadedStrings, BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Data.HBCI.Messages where
 
 import           Control.Applicative ((<$>))
-import           Control.Arrow (second)
-import           Control.Monad (foldM)
+import           Control.Arrow       (second)
+import           Control.Monad       (foldM)
 import           Control.Monad.State (StateT, evalStateT, get, modify)
 import           Control.Monad.Trans (lift)
-import qualified Data.ByteString as BS
-import           Data.Either (partitionEithers, rights, lefts)
-import           Data.Monoid ((<>))
-import qualified Data.Map  as M
-import           Data.Maybe (isJust, fromJust, isNothing)
-import qualified Data.Text as T
-import           Data.Traversable (traverse)
+import qualified Data.ByteString     as BS
+import           Data.Either         (lefts, partitionEithers, rights)
+import qualified Data.Map            as M
+import           Data.Maybe          (fromJust, isJust, isNothing)
+import           Data.Monoid         ((<>))
+import qualified Data.Text           as T
+import           Data.Traversable    (traverse)
 
 import           Data.HBCI.Types
 
