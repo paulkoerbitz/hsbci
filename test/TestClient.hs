@@ -81,8 +81,8 @@ main = do
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
   dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [(["Idn","KIK","blz"], blz)
                                                                                             ,(["Idn","customerid"], userID)
+                                                                                            ,(["Idn","sysid"],      "0")
                                                                                              -- FIXME
-                                                                                            ,(["Idn","sysid"],      userID)
                                                                                             ,(["Idn","sysStatus"], "0")
                                                                                             ,(["SigHead", "secfunc"], "999")
                                                                                             ,(["SigHead", "seccheckref"], "999")
