@@ -87,11 +87,15 @@ main = do
                                                                                             ,(["SigHead", "secfunc"], "999")
                                                                                             ,(["SigHead", "seccheckref"], "999")
                                                                                             ,(["SigHead", "role"], "1")
-                                                                                            ,(["SigHead", "SecIdnDetails", ""], "0")
+                                                                                            ,(["SigHead", "range"], "1")
+                                                                                            ,(["SigHead", "SecIdnDetails", "func"], "1") -- Must be 1 or 2 according to valids
+                                                                                            ,(["SigHead", "SecIdnDetails", "cid"], "0")
+                                                                                            ,(["SigHead", "SecIdnDetails", "sysid"], "0")
                                                                                             ,(["SigHead", "secref"], "0")
                                                                                             ,(["SigHead", "SecTimestamp", ""], "0")
                                                                                             ,(["SigHead", "HashAlg", ""], "0")
                                                                                             ,(["SigHead", "SigAlg", ""], "0")
+                                                                                            ,(["SigTail", "UserSig", "pin"], pin)
                                                                                             ]
   dialogInitMsg <- fromEither $ gen <$> fillMsg dialogInitVals dialogInitDef
 
