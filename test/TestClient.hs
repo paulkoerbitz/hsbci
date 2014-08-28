@@ -79,22 +79,24 @@ main = do
   exitSuccess
 
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
-  dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [(["Idn","KIK","blz"], blz)
-                                                                                            ,(["Idn","customerid"], userID)
-                                                                                            ,(["Idn","sysid"],      "0")
-                                                                                             -- FIXME
-                                                                                            ,(["Idn","sysStatus"], "0")
-                                                                                            ,(["SigHead", "secfunc"], "999")
-                                                                                            ,(["SigHead", "seccheckref"], "999")
-                                                                                            ,(["SigHead", "role"], "1")
+  dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals [
+                                                                                             (["SigHead", "secfunc"], "999") -- This one needs to come from the user (after DialogInit (?))
+                                                                                            ,(["SigHead", "seccheckref"], "123123") -- Random number which must ocurr both in head and tail
+                                                                                            ,(["SigHead", "role"], "1") -- if there are multiple signatures the role of the user, we'll just assume 1
                                                                                             ,(["SigHead", "range"], "1")
-                                                                                            ,(["SigHead", "SecIdnDetails", "func"], "1") -- Must be 1 or 2 according to valids
+                                                                                            ,(["SigHead", "SecIdnDetails", "func"], "1") -- 1 for User messages, 2 for 'XyzRes'
                                                                                             ,(["SigHead", "SecIdnDetails", "cid"], "0")
-                                                                                            ,(["SigHead", "SecIdnDetails", "sysid"], "0")
+                                                                                            ,(["SigHead", "SecIdnDetails", "sysid"], "0") -- must be obtained with a sync call -- maybe hbci does this before
                                                                                             ,(["SigHead", "secref"], "0")
                                                                                             ,(["SigHead", "SecTimestamp", ""], "0")
                                                                                             ,(["SigHead", "HashAlg", ""], "0")
                                                                                             ,(["SigHead", "SigAlg", ""], "0")
+
+                                                                                            ,(["Idn","KIK","blz"], blz)
+                                                                                            ,(["Idn","customerid"], userID)
+                                                                                            ,(["Idn","sysid"],      "0")
+                                                                                             -- FIXME
+                                                                                            ,(["Idn","sysStatus"], "0")
                                                                                             ,(["SigTail", "UserSig", "pin"], pin)
                                                                                             ]
   dialogInitMsg <- fromEither $ gen <$> fillMsg dialogInitVals dialogInitDef
