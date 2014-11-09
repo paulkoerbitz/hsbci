@@ -360,7 +360,7 @@ fillDeTests =
       assertEq (Right (DEStr "abc"))
       (testF (Just (DEStr "abc")) (DEdef "deKey0.deKey1" AN 0 Nothing 0 Nothing Nothing))
     , testCase "fillDe gives error if name is outside of valids" $
-      assertEq (Left "Value 'abc' for DE 'deKey' not in valid values '[\"ab\",\"c\",\"ac\"]'")
+      assertEq (Left $ FillError ["deKey"] "Value 'abc' not in valid values '[\"ab\",\"c\",\"ac\"]'")
       (testF (Just (DEStr "abc")) (DEdef "deKey" AN 0 Nothing 0 Nothing (Just ["ab", "c", "ac"])))
     , testCase "AN replacement results in string" $
       assertEq (Right (DEStr "abc0123"))
@@ -405,13 +405,13 @@ fillDeTests =
       assertEq (Right (DEStr "123,45"))
       (testF (Just (DEStr "123,45")) (DEdef "deKey" Time 0 Nothing 0 Nothing Nothing))
     , testCase "fillDe gives error if provided string too long" $
-      assertEq (Left "Field 'deKey' has a maxsize of 5 but provided value '123456' has a length of 6")
+      assertEq (Left $ FillError ["deKey"] "Field has a maxsize of 5 but provided value '123456' has a length of 6")
       (testF (Just (DEStr "123456")) (DEdef "deKey" AN 0 (Just 5) 0 Nothing Nothing))
     , testCase "fillDe fills entry with 0s if provided Num too short" $
       assertEq (Right (DEStr "000123"))
       (testF (Just (DEStr "123")) (DEdef "deKey" Num 6 (Just 6) 0 Nothing Nothing))
     , testCase "fillDe gives error if values of other types are too short" $
-      assertEq (Left "Field 'deKey' has a minsize of 6 but provided value '123' has a length of 3")
+      assertEq (Left $ FillError ["deKey"] "Field has a minsize of 6 but provided value '123' has a length of 3")
       (testF (Just (DEStr "123")) (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
     ]
   ]
@@ -429,12 +429,12 @@ fillMsgTests =
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- No entries for equired SEG" $
-      assertEq (Left "Required DE 'de1' missing in entries")
+      assertEq (Left "seg1.de1: Required DE missing in entries")
                (fillMsg
                 M.empty
                 (MSG False False [SEG "seg1" False 1 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- missing msgsize field" $
-      assertEq (Left "Didn't find expected field message size")
+      assertEq (Left ": Didn't find expected field message size")
                (fillMsg
                 (M.fromList [("seg1", M.fromList [("de1", DEentry $ DEStr "abcxyz")])])
                 (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
@@ -451,7 +451,7 @@ fillMsgTests =
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value outside of valids" $
-      assertEq (Left "Value '3' for DE 'de1' not in valid values '[\"1\",\"2\"]'")
+      assertEq (Left "MsgHead.de1: Value '3' not in valid values '[\"1\",\"2\"]'")
                (fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "3")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
