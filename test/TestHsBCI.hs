@@ -178,12 +178,34 @@ elemToDEGTests =
                       , DEdef "limitdays" Num 0 (Just 3) 0 Nothing Nothing
                       ]))
       (testF "<DEGdef id=\"AllowedGV\"><DE name=\"code\" type=\"AN\" maxsize=\"6\"/><DE name=\"reqSigs\" type=\"Num\" maxsize=\"2\"/><DE name=\"limittype\" type=\"AN\" maxsize=\"1\" minnum=\"0\"/><DE name=\"value\" type=\"Wrt\" minnum=\"0\"/><DE name=\"curr\" type=\"Cur\" minnum=\"0\"/><DE name=\"limitdays\" type=\"Num\" maxsize=\"3\" minnum=\"0\"/><valids path=\"reqSigs\"><validvalue>0</validvalue><validvalue>1</validvalue><validvalue>2</validvalue><validvalue>3</validvalue><!-- Siehe http://www.onlinebanking-forum.de/phpBB2/viewtopic.php?t=14583 --><validvalue>98</validvalue><validvalue>99</validvalue></valids><valids path=\"limittype\"><validvalue>E</validvalue><validvalue>T</validvalue><validvalue>W</validvalue><validvalue>M</validvalue><validvalue>Z</validvalue></valids></DEGdef>")
+    , testCase "KIK" $
+      assertEq (Right ("KIK",
+                       DEG "" 0 Nothing
+                       [ DEdef "country" Ctr 0 Nothing   1 Nothing Nothing
+                       , DEdef "blz"     AN  0 (Just 30) 0 Nothing Nothing
+                       ]))
+      (testF "<DEGdef id=\"KIK\"> <DE name=\"country\" type=\"Ctr\" /> <DE maxsize=\"30\" minnum=\"0\" name=\"blz\" type=\"AN\" /> </DEGdef>")
+    ]
+  , testGroup "Known examples of DEGdefs with DEGs inside of them"
+    [ testCase "DEGdef with DEGs" $
+      assertEq (Right ("KeyName",
+                       DEG "" 0 Nothing
+                       [ DEdef "country" Ctr 0 Nothing   1 Nothing Nothing
+                       , DEdef "blz"     AN  0 (Just 30) 0 Nothing Nothing
+                       ]))
+      (let knownDEGs = M.fromList [("KIK", DEG "" 0 Nothing [ DEdef "country" Ctr 0 Nothing   1 Nothing Nothing
+                                                            , DEdef "blz"     AN  0 (Just 30) 0 Nothing Nothing
+                                                            ])]
+       in testF2 knownDEGs "<DEGdef id=\"KeyName\"><DEG type=\"KIK\" /></DEGdef>")
     ]
     -- FIXME: Test failures
   ]
   where
     testF :: BS.ByteString -> Either T.Text (T.Text, DEG)
-    testF = elemToDEG M.empty . head . onlyElems . parseXML
+    testF = testF2 M.empty
+
+    testF2 :: M.Map T.Text DEG -> BS.ByteString -> Either T.Text (T.Text, DEG)
+    testF2 degs = elemToDEG degs . head . onlyElems . parseXML
 
 elemToSEGTests :: [TF.Test]
 elemToSEGTests =
@@ -338,6 +360,12 @@ getMSGfromXMLTest =
       in case res of
         (Right (Just res')) -> assertEqPretty dialogInitAnon res'
         _                   -> assertEq (Right (Just dialogInitAnon)) res
+    , testCase "DialogInit" $
+      let res = M.lookup "DialogInit" <$> getMSGfromXML xml
+          msg = (MSG False False [])
+      in case res of
+        (Right (Just res')) -> assertEqPretty msg res'
+        _                   -> assertEq (Right (Just msg)) res
     ]
   ]
 
@@ -480,16 +508,16 @@ fullMsgGenTests =
     [ testCase "DialogInitAnon" $
       let vals =
             M.fromList [("SeagHead", M.empty)
-                       ,("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
-                       ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
-                                                ,("UPD", DEentry $ DEStr "0")
-                                                ,("lang", DEentry $ DEStr "0")
+                       ,("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])])
+                       ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "3")
+                                                ,("UPD", DEentry $ DEStr "2")
+                                                ,("lang", DEentry $ DEStr "1")
                                                 ,("prodName", DEentry $ DEStr "HsBCI")
                                                 ,("prodVersion", DEentry $ DEStr "0.1.0")
                                                 ])
                        ]
       in assertEq
-         (Right "HNHBK:1:3:+000000000104+220+0+1+'HKIDN:2:2:+0:+9999999999+0+0'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HNHBS:4:1:+1'")
+         (Right "HNHBK:1:3:+000000000114+220+0+1+'HKIDN:2:2:+280:12030000+9999999999+0+0'HKVVB:3:2:+3+2+1+HsBCI+0.1.0'HNHBS:4:1:+1'")
          (testF dialogInitAnon vals)
     ]
   ]
@@ -549,13 +577,13 @@ extractSegTests =
 extractMsgTests :: [TF.Test]
 extractMsgTests =
   [ testGroup "Test extractMsg function"
-    [ testCase "Extract from generatd 'DialogInitAnon'" $
-      let keys    = ["Idn.KIK.country", "ProcPrep.BPD", "ProcPrep.UPD", "ProcPrep.lang", "ProcPrep.prodName", "ProcPrep.prodVersion"]
-          vals    = map DEStr ["0",  "0", "0", "0", "HsBCI", "0.1.0"]
-          inputs  = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "0")])])
-                               ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
-                                                        ,("UPD", DEentry $ DEStr "0")
-                                                        ,("lang", DEentry $ DEStr "0")
+    [ testCase "Extract from generated 'DialogInitAnon'" $
+      let keys    = ["Idn.KIK.country", "Idn.KIK.blz", "ProcPrep.BPD", "ProcPrep.UPD", "ProcPrep.lang", "ProcPrep.prodName", "ProcPrep.prodVersion"]
+          vals    = map DEStr ["280",  "12030000", "3", "2", "1", "HsBCI", "0.1.0"]
+          inputs  = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])])
+                               ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "3")
+                                                        ,("UPD", DEentry $ DEStr "2")
+                                                        ,("lang", DEentry $ DEStr "1")
                                                         ,("prodName", DEentry $ DEStr "HsBCI")
                                                         ,("prodVersion", DEentry $ DEStr "0.1.0")])]
           retVals = do msg <- fillMsg inputs dialogInitAnon
@@ -629,3 +657,106 @@ dialogInitAnon =
                                                                                             (DEval (DEStr "1")),
                                                                                             (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
                                                         (DEItem (DEval (DEStr "1")))])])
+
+
+dialogInit :: MSG
+dialogInit =
+  (MSG True True [(SEG "MsgHead" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBK")),
+                                                                                       (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                       (DEval (DEStr "3")),
+                                                                                       (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                   (DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 Nothing Nothing)),
+                                                   (DEItem (DEval (DEStr "220"))),
+                                                   (DEItem (DEval (DEStr "0"))),
+                                                   (DEItem (DEval (DEStr "1"))),
+                                                   (DEGItem (DEG "MsgRef" 0 (Just 1) [(DEdef "dialogid" ID 0 Nothing 1 Nothing Nothing),
+                                                                                      (DEdef "msgnum" Num 0 (Just 4) 1 Nothing Nothing)]))]),
+                  (SEG "SigHead" False 0 (Just 3) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNSHK")),
+                                                                                       (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                       (DEval (DEStr "3")),
+                                                                                       (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                   (DEItem (DEdef "secfunc" AN 0 (Just 3) 1 Nothing Nothing)),
+                                                   (DEItem (DEdef "seccheckref" AN 0 (Just 14) 1 Nothing Nothing)),
+                                                   (DEItem (DEval (DEStr "1"))),
+                                                   (DEItem (DEdef "role" AN 0 (Just 3) 1 Nothing (Just ["1",
+                                                                                                        "3",
+                                                                                                        "4"]))),
+                                                   (DEGItem (DEG "SecIdnDetails" 1 (Just 1) [(DEdef "func" AN 0 (Just 3) 1 Nothing (Just ["1",
+                                                                                                                                          "2"])),
+                                                                                             (DEdef "cid" Bin 0 (Just 256) 0 Nothing Nothing),
+                                                                                             (DEdef "sysid" ID 0 Nothing 0 Nothing Nothing)])),
+                                                   (DEItem (DEdef "secref" Num 0 (Just 16) 1 Nothing Nothing)),
+                                                   (DEGItem (DEG "SecTimestamp" 1 (Just 1) [(DEval (DEStr "1")),
+                                                                                            (DEdef "date" Date 0 Nothing 0 Nothing Nothing),
+                                                                                            (DEdef "time" Time 0 Nothing 0 Nothing Nothing)])),
+                                                   (DEGItem (DEG "HashAlg" 1 (Just 1) [(DEval (DEStr "1")),
+                                                                                       (DEdef "alg" AN 0 (Just 3) 1 Nothing (Just ["999"])),
+                                                                                       (DEval (DEStr "1")),
+                                                                                       (DEdef "parameter" Bin 0 (Just 512) 0 Nothing Nothing)])),
+                                                   (DEGItem (DEG "SigAlg" 1 (Just 1) [(DEval (DEStr "6")),
+                                                                                      (DEdef "alg" AN 0 (Just 3) 1 Nothing (Just ["1",
+                                                                                                                                  "10"])),
+                                                                                      (DEdef "mode" AN 0 (Just 999) 1 Nothing (Just ["999",
+                                                                                                                                     "16"]))])),
+                                                   (DEGItem (DEG "KeyName" 1 (Just 1) [(DEdef "country" Ctr 0 Nothing 1 Nothing Nothing),
+                                                                                       (DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing),
+                                                                                       (DEdef "userid" ID 0 Nothing 1 Nothing Nothing),
+                                                                                       (DEval (DEStr "S")),
+                                                                                       (DEdef "keynum" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                       (DEdef "keyversion" Num 0 (Just 3) 1 Nothing Nothing)])),
+                                                   (DEGItem (DEG "Cert" 0 (Just 1) [(DEdef "type" Num 0 (Just 1) 1 Nothing (Just ["1",
+                                                                                                                                  "2",
+                                                                                                                                  "3"])),
+                                                                                    (DEdef "cert" Bin 0 (Just 2048) 1 Nothing Nothing)]))]),
+                  (SEG "Idn" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKIDN")),
+                                                                                   (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                   (DEval (DEStr "2")),
+                                                                                   (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                               (DEGItem (DEG "KIK" 1 (Just 1) [(DEdef "country" Ctr 0 Nothing 1 Nothing Nothing),
+                                                                               (DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing)])),
+                                               (DEItem (DEdef "customerid" ID 0 Nothing 1 Nothing Nothing)),
+                                               (DEItem (DEdef "sysid" ID 0 Nothing 1 Nothing Nothing)),
+                                               (DEItem (DEdef "sysStatus" Num 0 (Just 1) 1 Nothing (Just ["0",
+                                                                                                          "1"])))]),
+                  (SEG "ProcPrep" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKVVB")),
+                                                                                        (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                        (DEval (DEStr "2")),
+                                                                                        (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                    (DEItem (DEdef "BPD" Num 0 (Just 3) 1 Nothing Nothing)),
+                                                    (DEItem (DEdef "UPD" Num 0 (Just 3) 1 Nothing Nothing)),
+                                                    (DEItem (DEdef "lang" Num 0 (Just 3) 1 Nothing (Just ["0",
+                                                                                                          "1",
+                                                                                                          "2",
+                                                                                                          "3"]))),
+                                                    (DEItem (DEdef "prodName" AN 0 (Just 25) 1 Nothing Nothing)),
+                                                    (DEItem (DEdef "prodVersion" AN 0 (Just 5) 1 Nothing Nothing))]),
+                  (SEG "KeyReq" False 0 (Just 2) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HKISA")),
+                                                                                      (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                      (DEval (DEStr "2")),
+                                                                                      (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                  (DEItem (DEval (DEStr "2"))),
+                                                  (DEItem (DEval (DEStr "124"))),
+                                                  (DEGItem (DEG "KeyName" 1 (Just 1) [(DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing),
+                                                                                      (DEdef "country" Ctr 0 Nothing 1 Nothing Nothing),
+                                                                                      (DEdef "userid" ID 0 Nothing 1 Nothing Nothing),
+                                                                                      (DEdef "keytype" AN 0 (Just 1) 1 Nothing (Just ["S",
+                                                                                                                                      "V"])),
+                                                                                      (DEdef "keynum" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                      (DEdef "keyversion" Num 0 (Just 3) 1 Nothing Nothing)])),
+                                                  (DEGItem (DEG "Cert" 0 (Just 1) [(DEdef "type" Num 0 (Just 1) 1 Nothing (Just ["1",
+                                                                                                                                 "2",
+                                                                                                                                 "3"])),
+                                                                                   (DEdef "cert" Bin 0 (Just 2048) 1 Nothing Nothing)]))]),
+                  (SEG "SigTail" False 0 (Just 3) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNSHA")),
+                                                                                       (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                       (DEval (DEStr "1")),
+                                                                                       (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                   (DEItem (DEdef "seccheckref" AN 0 (Just 14) 1 Nothing Nothing)),
+                                                   (DEItem (DEdef "sig" Bin 0 (Just 512) 0 Nothing Nothing)),
+                                                   (DEGItem (DEG "UserSig" 0 (Just 1) [(DEdef "pin" AN 0 (Just 99) 1 Nothing Nothing),
+                                                                                       (DEdef "tan" AN 0 (Just 35) 0 Nothing Nothing)]))]),
+                  (SEG "MsgTail" False 1 (Just 1) [(DEGItem (DEG "SegHead" 1 (Just 1) [(DEval (DEStr "HNHBS")),
+                                                                                       (DEdef "seq" Num 0 (Just 3) 1 Nothing Nothing),
+                                                                                       (DEval (DEStr "1")),
+                                                                                       (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
+                                                   (DEItem (DEval (DEStr "1")))])])
