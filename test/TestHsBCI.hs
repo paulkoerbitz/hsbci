@@ -361,10 +361,9 @@ getMSGfromXMLTest =
         _                   -> assertEq (Right (Just dialogInitAnon)) res
     , testCase "DialogInit" $
       let res = M.lookup "DialogInit" <$> getMSGfromXML xml
-          msg = (MSG False False [])
       in case res of
-        (Right (Just res')) -> assertEqPretty msg res'
-        _                   -> assertEq (Right (Just msg)) res
+        (Right (Just res')) -> assertEqPretty dialogInit res'
+        _                   -> assertEq (Right (Just dialogInit)) res
     ]
   ]
 
@@ -735,8 +734,8 @@ dialogInit =
                                                                                       (DEdef "ref" Num 0 (Just 3) 0 Nothing Nothing)])),
                                                   (DEItem (DEval (DEStr "2"))),
                                                   (DEItem (DEval (DEStr "124"))),
-                                                  (DEGItem (DEG "KeyName" 1 (Just 1) [(DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing),
-                                                                                      (DEdef "country" Ctr 0 Nothing 1 Nothing Nothing),
+                                                  (DEGItem (DEG "KeyName" 1 (Just 1) [(DEdef "country" Ctr 0 Nothing 1 Nothing Nothing),
+                                                                                      (DEdef "blz" AN 0 (Just 30) 0 Nothing Nothing),
                                                                                       (DEdef "userid" ID 0 Nothing 1 Nothing Nothing),
                                                                                       (DEdef "keytype" AN 0 (Just 1) 1 Nothing (Just ["S",
                                                                                                                                       "V"])),

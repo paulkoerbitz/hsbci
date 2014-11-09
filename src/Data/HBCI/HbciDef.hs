@@ -139,7 +139,7 @@ elemToDEG degs (Element nm attrs ctnt line) = do
   return (id_, DEG "" 0 Nothing (reverse items))
   where
     f items e | qName (elName e) == "DE"     = (:items) <$> elemToDE e
-    f items e | qName (elName e) == "DEG"    = getDEGType e >>= getReferencedItem "DEGdef" line degs >>= return . (++items) . degItems
+    f items e | qName (elName e) == "DEG"    = getDEGType e >>= getReferencedItem "DEGdef" line degs >>= return . (++items) . reverse . degItems
     f items e | qName (elName e) == "valids" = (\(x,y) -> map (setDEValids x y) items) <$> elemToValids e
     f items e | qName (elName e) == "value"  = (\(x,y) -> map (setDEValue x y) items) <$> elemToValue e
     f _     e                                = err (elLine e) ("Unexpected element while processing DEGdef: " <> T.pack (qName (elName e)))
