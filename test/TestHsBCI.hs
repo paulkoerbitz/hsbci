@@ -3,7 +3,6 @@ module Main where
 
 
 import           Control.Applicative ((<$>))
-import           Control.Arrow (second)
 import           Control.Monad.State (evalStateT)
 import           Data.Monoid ((<>))
 import qualified Data.ByteString as BS
