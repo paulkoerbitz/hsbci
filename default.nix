@@ -1,6 +1,7 @@
 { haskellPackages ? (import <nixpkgs> {}).haskellPackages }:
 let
   inherit (haskellPackages)
+    dataDefaultInstancesOldLocale
     cabal
     cabalInstall
     httpConduit
@@ -10,6 +11,7 @@ let
     testFrameworkHunit
     testFrameworkQuickcheck2
     text
+    time
     vector
     xml
     base64Bytestring
@@ -25,12 +27,13 @@ cabal.mkDerivation (self: {
   isExecutable = true;
   buildDepends = [
     httpConduit HUnit mtl testFramework testFrameworkHunit
-    testFrameworkQuickcheck2 text vector xml prettyShow
-    ghcMod cabalInstall
+    testFrameworkQuickcheck2 text time vector xml prettyShow
+    ghcMod cabalInstall dataDefaultInstancesOldLocale
   ];
   testDepends = [
     HUnit mtl testFramework testFrameworkHunit testFrameworkQuickcheck2
-    text vector xml prettyShow base64Bytestring cabalInstall
+    text time vector xml prettyShow base64Bytestring cabalInstall
+    dataDefaultInstancesOldLocale
   ];
   meta = {
     description = "A fast, simple and modular HBCI library for Haskell";
