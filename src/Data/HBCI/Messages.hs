@@ -69,7 +69,7 @@ fillDe Nothing (DEdef deNm _ _ _ minNum _ _)      = if minNum == 0
                                                     else lift $ Left $ FillError [deNm] "Required DE missing in entries"
 fillDe (Just val) (DEdef deNm deTp minSz maxSz _ _ valids) =
   case (isBinaryType deTp, val) of
-    (True,  (DEBinary b)) -> return (DEBinary b)
+    (True,  (DEBinary b)) -> updateSize $ DEBinary b
     (True,  _           ) -> lift $! Left $! FillError [deNm] "Value must be binary"
     (False, (DEStr s))    -> if not (isJust valids) || s `elem` (fromJust valids)
                              then (escape <$> lift (checkSize deNm deTp minSz maxSz s)) >>= updateSize . DEStr

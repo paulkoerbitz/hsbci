@@ -440,17 +440,10 @@ main = do
   putStrLn $ show $ initRes
   exitSuccess
 
-  -- I get
-  -- Message to be send:
-  -- HNHBK:1:3:+000000000238+220+0+1+'HNSHK:2:3:+999+123123+1+1+1::0+1+1:2014-10-29:10?:12?:36+1:999:1:+6:10:999+12030000:280:123123:S:1:1+'HKIDN:3:2:+280:12030000+123123+0+0'HKVVB:4:2:+0+0+0+HsBCI+0.1.0''HNSHA:5:1:+123123++12345:'HNHBS:6:1:+1'
-  -- Message received:
-  -- HNHBK:1:3:+000000000148+220+unbekannt+1++unbekannt:1+'HIRMG:2:2+9050::PinTanJ2EE HBCI-System nicht erreichbar+9800::Dialog abgebrochen'HNHBS:3:1+1+'
-  -- ([],[("MsgHead.MsgRef.dialogid",DEStr ""),("MsgHead.msgnum",DEStr "1"),("MsgHead.dialogid",DEStr "unbekannt"),("MsgHead.msgsize",DEStr "000000000148"),("MsgHead.SegHead.seq",DEStr "1"),("MsgHead.SegHead.ref",DEStr ""),("RetGlob.RetVal.code",DEStr "9050"),("RetGlob.RetVal.ref",DEStr ""),("RetGlob.RetVal.text",DEStr "PinTanJ2EE HBCI-System nicht erreichbar"),("RetGlob.SegHead.seq",DEStr "2"),("MsgTail.msgnum",DEStr "1"),("MsgTail.SegHead.seq",DEStr "3")])
-
--- New, crypted message: There is definitely a problem with the message size :)
--- HNHBK:1:3:+000000000141+220+1+1+'
--- HNVSK:2:2:+998+1+1::0+1:20141110:111031+2:1:1:@8@:5:1:+280:12030000:17863762:V:1:1+0+'
--- HNVSD:3:1:+@251@HNSHK:1:3:+999+12345678901234+1+1+1::0+1+1:20141110:111031+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:2:2:+280:12030000+17863762+0+1'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HKISA:4:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:5:1:+12345678901234++12345:''
+-- Crypted message: DKBs HBCI system complains about syntax, message size is now correct, not sure what the problem is
+-- HNHBK:1:3:+000000000408+220+1+1+'
+-- HNVSK:2:2:+998+1+1::0+1:20141110:112925+2:1:1:@8@:5:1:+280:12030000:17863762:V:1:1+0+'
+-- HNVSD:3:1:+@251@HNSHK:1:3:+999+12345678901234+1+1+1::0+1+1:20141110:112925+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:2:2:+280:12030000+17863762+0+1'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HKISA:4:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:5:1:+12345678901234++12345:''
 -- HNHBS:4:1:+1'
 
 -- Hbci4java:
