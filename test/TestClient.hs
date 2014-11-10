@@ -332,7 +332,7 @@ main = do
 
   ZonedTime localTime _ <- getZonedTime
 
-  let sign msg =  fromEither $
+  let sign msg = fromEither $
                     foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msg
                       [(["SigHead", "secfunc"], secfunc_sig_pt_1step) -- Must be '1' or '2', I'll try '1' here
                       ,(["SigHead", "seccheckref"], "12345678901234") -- Random number which must ocurr both in head and tail
@@ -349,7 +349,7 @@ main = do
                       ,(["SigHead", "secref"], "1") -- Number to uniquify messages. Hbci4Java calls this the 'sigid', always uses the same sigid for PinTan. Let's try 1 here
 
                       ,(["SigHead", "SecTimestamp", "date"], T.pack $ formatTime defaultTimeLocale "%Y%m%d" localTime) -- YYYYMMDD
-                      ,(["SigHead", "SecTimestamp", "time"], T.pack $ formatTime defaultTimeLocale "%H%M%S" localTime) -- HH:mm:ss
+                      ,(["SigHead", "SecTimestamp", "time"], T.pack $ formatTime defaultTimeLocale "%H%M%S" localTime) -- HHmmss
 
                       ,(["SigHead", "HashAlg", "alg"], "999")
 
@@ -367,13 +367,56 @@ main = do
                       ,(["SigTail", "seccheckref"], "12345678901234")
                       ]
 
+      -- PinTan encryption. It doesn't really encrypt anything, it just chops of the
+      -- head and tail of a message, renders it and embeds it in another message ('crypted message')
+      crypt :: MSG -> MSGEntry -> MSG -> Either T.Text MSGValue
+      crypt (MSG reqSig reqEnc items) entries cryptMsgDef = do
+        let items'     = tail $ init $ items -- FIXME: using unsafe tail and init is really bad style ...
+        msgtext <- gen <$> fillMsg' entries (MSG reqSig reqEnc items')
+        cryptItems <- foldM (\acc (k,v) -> nestedInsert k v acc) M.empty
+                      [(["CryptHead", "CryptAlg", "alg"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "CryptAlg", "mode"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "CryptAlg", "enckey"], DEBinary "\0\0\0\0\0\0\0\0")
+                      ,(["CryptHead", "CryptAlg", "keytype"], DEStr "5") -- FIXME
+                      ,(["CryptHead", "SecIdnDetails", "func"], DEStr "1") -- "2" for Responses
+                      ,(["CryptHead", "KeyName", "blz"], DEStr blz)
+                      ,(["CryptHead", "KeyName", "country"], DEStr "280")
+                      ,(["CryptHead", "KeyName", "userid"], DEStr userID)
+                      ,(["CryptHead", "KeyName", "keynum"] ,DEStr "1") -- FIXME
+                      ,(["CryptHead", "KeyName", "keyversion"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "SecProfile", "method"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "SecProfile", "version"], DEStr "1") -- FIXME
+                       -- ,(["CryptHead", "SecIdnDetails", "cid"], DEStr "") for DDV
+                      ,(["CryptHead", "SecIdnDetails", "sysid"], DEStr "0")
+                      ,(["CryptHead", "SecTimestamp", "date"], DEStr $ T.pack $ formatTime defaultTimeLocale "%Y%m%d" localTime)
+                      ,(["CryptHead", "SecTimestamp", "time"], DEStr $ T.pack $ formatTime defaultTimeLocale "%H%M%S" localTime)
+                      ,(["CryptHead", "role"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "secfunc"] , DEStr "998") -- FIXME
+                      ,(["CryptHead", "compfunc"], DEStr "0") -- FIXME
+
+                      ,(["CryptData","data"], DEBinary msgtext)
+
+                      -- FIXME: why do we need this? I guess it should be automated when filling
+                      ,(["MsgHead", "dialogid"], DEStr "1")
+                      ,(["MsgHead", "msgnum"], DEStr "1")
+                      ,(["MsgTail", "msgnum"], DEStr "1")
+                      ]
+                      -- Is this needed?
+                      -- gen.set(newName+".MsgHead.dialogid",dialogid);
+                      -- gen.set(newName+".MsgHead.msgnum",msgnum);
+                      -- gen.set(newName+".MsgTail.msgnum",msgnum);
+        fillMsg cryptItems cryptMsgDef
+
+
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
+  cryptedMsgDef <- maybe (exitWMsg "Error: Can't find 'Crypted'") return $ M.lookup "Crypted" hbciDef
+
   dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals
                     [(["Idn","KIK","blz"], blz)
                     ,(["Idn","customerid"], userID)
                     ,(["Idn","sysid"],      "0")
                      -- FIXME
-                    ,(["Idn","sysStatus"], "0") -- FIXME: Either 0 or 1 ... ?
+                    ,(["Idn","sysStatus"], "1") -- 0 DDV, 1 for RDH
 
                     ,(["KeyReq", "KeyName", "userid"], userID)
                     ,(["KeyReq", "KeyName", "country"], "280")
@@ -384,10 +427,11 @@ main = do
                     ]
 
   signedInitVals <- sign dialogInitVals
-  dialogInitMsg <- fromEither $ gen <$> fillMsg signedInitVals dialogInitDef
+  cryptedDialogInitMsg <- fromEither $ gen <$> crypt dialogInitDef signedInitVals cryptedMsgDef
+  -- dialogInitMsg <- fromEither $ gen <$> fillMsg signedInitVals dialogInitDef
 
-  C8.putStrLn $ "Message to be send:\n" <> dialogInitMsg
-  dialogInitResponse <- sendMsg props dialogInitMsg
+  C8.putStrLn $ "Message to be send:\n" <> cryptedDialogInitMsg
+  dialogInitResponse <- sendMsg props cryptedDialogInitMsg
   C8.putStrLn $ "Message received:\n" <> dialogInitResponse
 
   dialogInitResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitRes'") return $ M.lookup "DialogInitRes" hbciDef
@@ -403,7 +447,14 @@ main = do
   -- HNHBK:1:3:+000000000148+220+unbekannt+1++unbekannt:1+'HIRMG:2:2+9050::PinTanJ2EE HBCI-System nicht erreichbar+9800::Dialog abgebrochen'HNHBS:3:1+1+'
   -- ([],[("MsgHead.MsgRef.dialogid",DEStr ""),("MsgHead.msgnum",DEStr "1"),("MsgHead.dialogid",DEStr "unbekannt"),("MsgHead.msgsize",DEStr "000000000148"),("MsgHead.SegHead.seq",DEStr "1"),("MsgHead.SegHead.ref",DEStr ""),("RetGlob.RetVal.code",DEStr "9050"),("RetGlob.RetVal.ref",DEStr ""),("RetGlob.RetVal.text",DEStr "PinTanJ2EE HBCI-System nicht erreichbar"),("RetGlob.SegHead.seq",DEStr "2"),("MsgTail.msgnum",DEStr "1"),("MsgTail.SegHead.seq",DEStr "3")])
 
+-- New, crypted message: There is definitely a problem with the message size :)
+-- HNHBK:1:3:+000000000141+220+1+1+'
+-- HNVSK:2:2:+998+1+1::0+1:20141110:111031+2:1:1:@8@:5:1:+280:12030000:17863762:V:1:1+0+'
+-- HNVSD:3:1:+@251@HNSHK:1:3:+999+12345678901234+1+1+1::0+1+1:20141110:111031+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:2:2:+280:12030000+17863762+0+1'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HKISA:4:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:5:1:+12345678901234++12345:''
+-- HNHBS:4:1:+1'
 
 -- Hbci4java:
 -- (unencrypted): HNHBK:1:3+000000000254+220+0+1'HNSHK:2:3+999+1922472290+1+1+1::0+1+1:20141031:171042+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKIDN:3:2+280:10050000+6015813332M+0+1'HKVVB:4:2+49+0+0+HBCI4Java+2.5'HKSYN:5:2+0'HNSHA:6:1+1922472290++XXXXX'HNHBS:7:1+1'
 -- (encrypted):   HNHBK:1:3+000000000369+220+0+1'HNVSK:998:2+998+1+1::0+1:20141031:171042+2:2:13:@8@^@^@^@^@^@^@^@^@:5:1+280:10050000:6015813332M:V:0:0+0'HNVSD:999:1+@211@HNSHK:2:3+999+1922472290+1+1+1::0+1+1:20141031:171042+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKIDN:3:2+280:10050000+6015813332M+0+1'HKVVB:4:2+49+0+0+HBCI4Java+2.5'HKSYN:5:2+0'HNSHA:6:1+1922472290++XXXXX''HNHBS:7:1+1'
+
+

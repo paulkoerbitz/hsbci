@@ -110,6 +110,12 @@ fillSeg entries (SEG segNm _tag minnum _ items) = augmentFillErrorPath segNm $ d
             modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
             return res
 
+fillMsg' :: MSGEntry -> MSG -> Either T.Text MSGValue
+fillMsg' entries (MSG _reqSig _reqEnc items) =
+  case evalStateT (traverse (fillSeg entries) items) (MkFillState 0 1) of
+    Right x -> return x
+    Left (FillError path msg) -> Left $ T.intercalate "." path <> ": " <> msg
+
 fillMsg :: MSGEntry -> MSG -> Either T.Text MSGValue
 fillMsg entries (MSG _reqSig _reqEnc items) =
   case evalStateT (traverse (fillSeg entries') items >>= replaceMsgSize) (MkFillState 0 1) of
