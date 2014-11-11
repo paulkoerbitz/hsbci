@@ -299,16 +299,16 @@ sigmode_retail_mac = "999"
 main :: IO ()
 main = do
   let blz    = "12030000"
-  let userID = "17863762"
-  let pin    = "12345"
+  -- let userID = "17863762"
+  -- let pin    = "12345"
   -- putStrLn "Please enter your BLZ:"
   -- blz <- T.pack <$> getLine
   --
-  -- putStrLn "Please enter your User ID:"
-  -- userID <- T.pack <$> getLine
+  putStrLn "Please enter your User ID:"
+  userID <- T.pack <$> getLine
   --
-  -- putStrLn "Please enter your PIN:"
-  -- pin <- T.pack <$> getLine
+  putStrLn "Please enter your PIN:"
+  pin <- T.pack <$> getLine
 
   bankProps <- getBankPropsFromFile "resources/blz.properties" >>= either (\err -> TIO.putStrLn err >> exitFailure) return
   props <- maybe (TIO.putStrLn ("Unknown BLZ: " <> blz) >> exitFailure) return (M.lookup blz bankProps)
@@ -372,41 +372,48 @@ main = do
       crypt :: MSG -> MSGEntry -> MSG -> Either T.Text MSGValue
       crypt (MSG reqSig reqEnc items) entries cryptMsgDef = do
         let items'     = tail $ init $ items -- FIXME: using unsafe tail and init is really bad style ...
-        msgtext <- gen <$> fillMsg' entries (MSG reqSig reqEnc items')
+        (nextSeq, msgtext) <- (\(x,y) -> (x, gen y)) <$> fillMsg 2 entries (MSG reqSig reqEnc items')
         cryptItems <- foldM (\acc (k,v) -> nestedInsert k v acc) M.empty
-                      [(["CryptHead", "CryptAlg", "alg"], DEStr "1") -- FIXME
-                      ,(["CryptHead", "CryptAlg", "mode"], DEStr "1") -- FIXME
-                      ,(["CryptHead", "CryptAlg", "enckey"], DEBinary "\0\0\0\0\0\0\0\0")
-                      ,(["CryptHead", "CryptAlg", "keytype"], DEStr "5") -- FIXME
+                      [(["CryptHead", "secfunc"] , DEStr "998") -- FIXME
+                      ,(["CryptHead", "role"], DEStr "1") -- FIXME
+
                       ,(["CryptHead", "SecIdnDetails", "func"], DEStr "1") -- "2" for Responses
-                      ,(["CryptHead", "KeyName", "blz"], DEStr blz)
-                      ,(["CryptHead", "KeyName", "country"], DEStr "280")
-                      ,(["CryptHead", "KeyName", "userid"], DEStr userID)
-                      ,(["CryptHead", "KeyName", "keynum"] ,DEStr "1") -- FIXME
-                      ,(["CryptHead", "KeyName", "keyversion"], DEStr "1") -- FIXME
-                      ,(["CryptHead", "SecProfile", "method"], DEStr "1") -- FIXME
-                      ,(["CryptHead", "SecProfile", "version"], DEStr "1") -- FIXME
-                       -- ,(["CryptHead", "SecIdnDetails", "cid"], DEStr "") for DDV
                       ,(["CryptHead", "SecIdnDetails", "sysid"], DEStr "0")
+                       -- ,(["CryptHead", "SecIdnDetails", "cid"], DEStr "") for DDV
+
                       ,(["CryptHead", "SecTimestamp", "date"], DEStr $ T.pack $ formatTime defaultTimeLocale "%Y%m%d" localTime)
                       ,(["CryptHead", "SecTimestamp", "time"], DEStr $ T.pack $ formatTime defaultTimeLocale "%H%M%S" localTime)
-                      ,(["CryptHead", "role"], DEStr "1") -- FIXME
-                      ,(["CryptHead", "secfunc"] , DEStr "998") -- FIXME
+
+                      ,(["CryptHead", "CryptAlg", "mode"], DEStr "2") -- FIXME
+                      ,(["CryptHead", "CryptAlg", "alg"], DEStr "13") -- FIXME
+                      ,(["CryptHead", "CryptAlg", "enckey"], DEBinary "\0\0\0\0\0\0\0\0")
+                      ,(["CryptHead", "CryptAlg", "keytype"], DEStr "5") -- FIXME
+
+                      ,(["CryptHead", "KeyName", "country"], DEStr "280")
+                      ,(["CryptHead", "KeyName", "blz"], DEStr blz)
+                      ,(["CryptHead", "KeyName", "userid"], DEStr userID)
+                      ,(["CryptHead", "KeyName", "keynum"] ,DEStr "0") -- FIXME
+                      ,(["CryptHead", "KeyName", "keyversion"], DEStr "0") -- FIXME
+
                       ,(["CryptHead", "compfunc"], DEStr "0") -- FIXME
+
+                      ,(["CryptHead", "SecProfile", "method"], DEStr "1") -- FIXME
+                      ,(["CryptHead", "SecProfile", "version"], DEStr "1") -- FIXME
 
                       ,(["CryptData","data"], DEBinary msgtext)
 
                       -- FIXME: why do we need this? I guess it should be automated when filling
-                      ,(["MsgHead", "dialogid"], DEStr "1")
+                      ,(["MsgHead", "dialogid"], DEStr "0")
                       ,(["MsgHead", "msgnum"], DEStr "1")
                       ,(["MsgTail", "msgnum"], DEStr "1")
                       ]
-                      -- Is this needed?
-                      -- gen.set(newName+".MsgHead.dialogid",dialogid);
-                      -- gen.set(newName+".MsgHead.msgnum",msgnum);
-                      -- gen.set(newName+".MsgTail.msgnum",msgnum);
-        fillMsg cryptItems cryptMsgDef
 
+        let cryptMsgHead = cryptMsgDef { msgItems = init $ msgItems cryptMsgDef }
+        let cryptMsgTail = cryptMsgDef { msgItems = [last $ msgItems cryptMsgDef] }
+
+        (_, filledMsgHead) <- fillMsg 1       cryptItems cryptMsgHead
+        (_, filledMsgTail) <- fillMsg nextSeq cryptItems cryptMsgTail
+        return (filledMsgHead ++ filledMsgTail)
 
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
   cryptedMsgDef <- maybe (exitWMsg "Error: Can't find 'Crypted'") return $ M.lookup "Crypted" hbciDef
@@ -428,7 +435,6 @@ main = do
 
   signedInitVals <- sign dialogInitVals
   cryptedDialogInitMsg <- fromEither $ gen <$> crypt dialogInitDef signedInitVals cryptedMsgDef
-  -- dialogInitMsg <- fromEither $ gen <$> fillMsg signedInitVals dialogInitDef
 
   C8.putStrLn $ "Message to be send:\n" <> cryptedDialogInitMsg
   dialogInitResponse <- sendMsg props cryptedDialogInitMsg
@@ -441,13 +447,13 @@ main = do
   exitSuccess
 
 -- Crypted message: DKBs HBCI system complains about syntax, message size is now correct, not sure what the problem is
--- HNHBK:1:3:+000000000408+220+1+1+'
--- HNVSK:2:2:+998+1+1::0+1:20141110:112925+2:1:1:@8@:5:1:+280:12030000:17863762:V:1:1+0+'
--- HNVSD:3:1:+@251@HNSHK:1:3:+999+12345678901234+1+1+1::0+1+1:20141110:112925+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:2:2:+280:12030000+17863762+0+1'HKVVB:3:2:+0+0+0+HsBCI+0.1.0'HKISA:4:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:5:1:+12345678901234++12345:''
--- HNHBS:4:1:+1'
+-- HNHBK:1:3:+000000000400+220+0+1+'
+-- HNVSK:998:2:+998+1+1::0+1:20141111:110753+2:2:13:@8@:5:1:+280:12030000:17863762:V:0:0+0+'
+-- HNVSD:999:1:+@251@HNSHK:2:3:+999+12345678901234+1+1+1::0+1+1:20141111:110753+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:3:2:+280:12030000+17863762+0+1'HKVVB:4:2:+0+0+0+HsBCI+0.1.0'HKISA:5:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:6:1:+12345678901234++12345:''
+-- HNHBS:7:1:+1'
 
 -- Hbci4java:
--- (unencrypted): HNHBK:1:3+000000000254+220+0+1'HNSHK:2:3+999+1922472290+1+1+1::0+1+1:20141031:171042+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKIDN:3:2+280:10050000+6015813332M+0+1'HKVVB:4:2+49+0+0+HBCI4Java+2.5'HKSYN:5:2+0'HNSHA:6:1+1922472290++XXXXX'HNHBS:7:1+1'
--- (encrypted):   HNHBK:1:3+000000000369+220+0+1'HNVSK:998:2+998+1+1::0+1:20141031:171042+2:2:13:@8@^@^@^@^@^@^@^@^@:5:1+280:10050000:6015813332M:V:0:0+0'HNVSD:999:1+@211@HNSHK:2:3+999+1922472290+1+1+1::0+1+1:20141031:171042+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKIDN:3:2+280:10050000+6015813332M+0+1'HKVVB:4:2+49+0+0+HBCI4Java+2.5'HKSYN:5:2+0'HNSHA:6:1+1922472290++XXXXX''HNHBS:7:1+1'
-
-
+-- HNHBK:1:3+000000000369+220+0+1'
+-- HNVSK:998:2+998+1+1::0+1:20141031:171042+2:2:13:@8@^@^@^@^@^@^@^@^@:5:1+280:10050000:6015813332M:V:0:0+0'
+-- HNVSD:999:1+@211@HNSHK:2:3+999+1922472290+1+1+1::0+1+1:20141031:171042+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKIDN:3:2+280:10050000+6015813332M+0+1'HKVVB:4:2+49+0+0+HBCI4Java+2.5'HKSYN:5:2+0'HNSHA:6:1+1922472290++XXXXX''
+-- HNHBS:7:1+1'

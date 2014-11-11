@@ -1518,6 +1518,7 @@
 
       <value path="SegHead.code">HNVSK</value>
       <value path="SegHead.version">2</value>
+      <value path="SegHead.seq">998</value>
       <value path="SecTimestamp.type">1</value>
       <value path="KeyName.keytype">V</value>
     </SEGdef>
@@ -1535,6 +1536,7 @@
 
       <value path="SegHead.code">HNVSD</value>
       <value path="SegHead.version">1</value>
+      <value path="SegHead.seq">999</value>
     </SEGdef>
 
     <SEGdef id="DialogEndS">

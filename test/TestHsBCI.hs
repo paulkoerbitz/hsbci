@@ -449,41 +449,41 @@ fillMsgTests :: [TF.Test]
 fillMsgTests =
   [ testGroup "Simple message examples"
     [ testCase "One item message -- success" $
-      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (fillMsg
+      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
+               (fillMsg 1
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "HNHBK")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- No entries for equired SEG" $
       assertEq (Left "seg1.de1: Required DE missing in entries")
-               (fillMsg
+               (fillMsg 1
                 M.empty
                 (MSG False False [SEG "seg1" False 1 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- missing msgsize field" $
       assertEq (Left ": Didn't find expected field message size")
-               (fillMsg
+               (fillMsg 1
                 (M.fromList [("seg1", M.fromList [("de1", DEentry $ DEStr "abcxyz")])])
                 (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 1" $
-      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (fillMsg
+      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
+               (fillMsg 1
                 M.empty
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 2" $
-      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (fillMsg
+      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
+               (fillMsg 1
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "SomethingOrOther")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value outside of valids" $
       assertEq (Left "MsgHead.de1: Value '3' not in valid values '[\"1\",\"2\"]'")
-               (fillMsg
+               (fillMsg 1
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "3")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
     , testCase "Message with one DEG with two DEs" $
-      assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
-               (fillMsg
+      assertEq (Right (1, [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]]))
+               (fillMsg 1
                 (M.fromList [("MsgHead", M.fromList [("deg1", DEGentry $ M.fromList [("de1", DEStr "99")
                                                                                     ,("de2", DEStr "77")])])])
                 (MSG False False
@@ -520,7 +520,7 @@ fullMsgGenTests =
     ]
   ]
   where
-    testF msg vals = fillMsg vals msg >>= return . gen
+    testF msg vals = fillMsg 1 vals msg >>= return . gen . snd
 
 parseBankPropsLineTests :: [TF.Test]
 parseBankPropsLineTests =
@@ -584,7 +584,7 @@ extractMsgTests =
                                                         ,("lang", DEentry $ DEStr "1")
                                                         ,("prodName", DEentry $ DEStr "HsBCI")
                                                         ,("prodVersion", DEentry $ DEStr "0.1.0")])]
-          retVals = do msg <- fillMsg inputs dialogInitAnon
+          retVals = do (_, msg) <- fillMsg 1 inputs dialogInitAnon
                        let (_errors, matched) = extractMsg dialogInitAnon msg
                        return $ catMaybes [lookup k matched | k <- keys]
       in assertEq (Right vals) retVals
