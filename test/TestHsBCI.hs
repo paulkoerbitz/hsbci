@@ -3,7 +3,7 @@ module Main where
 
 
 import           Control.Applicative ((<$>))
-import           Control.Monad.State (evalStateT)
+import           Control.Monad.State (evalStateT, runStateT)
 import           Data.Monoid ((<>))
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
@@ -439,51 +439,67 @@ fillDeTests =
     , testCase "fillDe gives error if values of other types are too short" $
       assertEq (Left $ FillError ["deKey"] "Field has a minsize of 6 but provided value '123' has a length of 3")
       (testF (Just (DEStr "123")) (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
+    , testCase "Check fillDe gives error if values of other types are too short" $
+      assertEq (Left $ FillError ["deKey"] "Field has a minsize of 6 but provided value '123' has a length of 3")
+      (testF (Just (DEStr "123")) (DEdef "deKey" AN 6 (Just 6) 0 Nothing Nothing))
+    ]
+  , testGroup "Test length calculations of DEs"
+    [ testCase "Length of DEStr" $
+      assertEq (Right (DEStr "abc", MkFillState 3 1))
+      (testF2 Nothing (DEval (DEStr "abc")))
+    , testCase "Length of DEBinary" $
+      assertEq (Right (DEBinary "\0\0\0\0\0\0\0\0", MkFillState 11 1))
+      (testF2 Nothing (DEval (DEBinary "\0\0\0\0\0\0\0\0")))
+    , testCase "Length of 'seq'" $
+      assertEq (Right (DEStr "123", MkFillState 3 123))
+      (runStateT (fillDe Nothing (DEdef "seq" Num 0 (Just 3) 0 Nothing Nothing)) (MkFillState 0 123))
     ]
   ]
   where
     testF x y = evalStateT (fillDe x y) (MkFillState 0 1)
+
+    testF2 x y = runStateT (fillDe x y) (MkFillState 0 1)
 
 
 fillMsgTests :: [TF.Test]
 fillMsgTests =
   [ testGroup "Simple message examples"
     [ testCase "One item message -- success" $
-      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
-               (fillMsg 1
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
+               (finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "HNHBK")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- No entries for equired SEG" $
       assertEq (Left "seg1.de1: Required DE missing in entries")
-               (fillMsg 1
+               (finalizeMsg $ fillMsg
                 M.empty
                 (MSG False False [SEG "seg1" False 1 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
-    , testCase "One item message -- missing msgsize field" $
-      assertEq (Left ": Didn't find expected field message size")
-               (fillMsg 1
-                (M.fromList [("seg1", M.fromList [("de1", DEentry $ DEStr "abcxyz")])])
-                (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
+    -- , testCase "One item message -- missing msgsize field" $
+    --   assertEq (Left ": Didn't find expected field message size")
+    --            (fillMsg 1
+    --             (M.fromList [("seg1", M.fromList [("de1", DEentry $ DEStr "abcxyz")])])
+    --             (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 1" $
-      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
-               (fillMsg 1
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
+               (finalizeMsg $ fillMsg
                 M.empty
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 2" $
-      assertEq (Right (1, [[[DEStr "HNHBK"],[DEStr "000000000019"]]]))
-               (fillMsg 1
+      assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
+               (finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "SomethingOrOther")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value outside of valids" $
       assertEq (Left "MsgHead.de1: Value '3' not in valid values '[\"1\",\"2\"]'")
-               (fillMsg 1
+               (finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "3")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
     , testCase "Message with one DEG with two DEs" $
-      assertEq (Right (1, [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]]))
-               (fillMsg 1
+      assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
+               (finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("deg1", DEGentry $ M.fromList [("de1", DEStr "99")
                                                                                     ,("de2", DEStr "77")])])])
                 (MSG False False
@@ -505,8 +521,7 @@ fullMsgGenTests =
   [ testGroup "Test full generation of HBCI messages"
     [ testCase "DialogInitAnon" $
       let vals =
-            M.fromList [("SeagHead", M.empty)
-                       ,("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])])
+            M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])])
                        ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "3")
                                                 ,("UPD", DEentry $ DEStr "2")
                                                 ,("lang", DEentry $ DEStr "1")
@@ -517,10 +532,48 @@ fullMsgGenTests =
       in assertEq
          (Right "HNHBK:1:3:+000000000114+220+0+1+'HKIDN:2:2:+280:12030000+9999999999+0+0'HKVVB:3:2:+3+2+1+HsBCI+0.1.0'HNHBS:4:1:+1'")
          (testF dialogInitAnon vals)
+    , testCase "DialogInit" $
+      let vals =
+            M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])
+                                           ,("customerid", DEentry $ DEStr "CUSTOMERID")
+                                           ,("sysid", DEentry $ DEStr "0")
+                                           ,("sysStatus", DEentry $ DEStr "1")])
+                       ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "3")
+                                                ,("UPD", DEentry $ DEStr "2")
+                                                ,("lang", DEentry $ DEStr "1")
+                                                ,("prodName", DEentry $ DEStr "HsBCI")
+                                                ,("prodVersion", DEentry $ DEStr "0.1.0")
+                                                ])
+                       ,("SigHead", M.fromList [("secfunc", DEentry $ DEStr "1")
+                                               ,("seccheckref", DEentry $ DEStr "1234567890")
+                                               ,("range", DEentry $ DEStr "1")
+                                               ,("role", DEentry $ DEStr "1")
+                                               ,("SecIdnDetails", DEGentry $ M.fromList [("func", DEStr "1")
+                                                                                        ,("sysid", DEStr "0")
+                                                                                        ,("cid", DEBinary "\0\0\0\0\0\0\0\0\0\0")])
+                                               ,("secref", DEentry $ DEStr "1")
+                                               ,("SecTimestamp", DEGentry $ M.fromList [("date", DEStr "20141111")
+                                                                                       ,("time", DEStr "070809")])
+                                               ,("HashAlg", DEGentry $ M.fromList [("alg", DEStr "999")])
+                                               ,("SigAlg", DEGentry $ M.fromList [("alg", DEStr "10")
+                                                                                 ,("mode", DEStr "16")])
+                                               ,("KeyName", DEGentry $ M.fromList [("userid", DEStr "USERID9999")
+                                                                                  ,("country", DEStr "280")
+                                                                                  ,("blz", DEStr "12030000")
+                                                                                  ,("keynum", DEStr "0")
+                                                                                  ,("keyversion", DEStr "0")])
+                                               ])
+                       ,("SigTail", M.fromList [("UserSig", DEGentry $ M.fromList [("pin", DEStr "PIN12" )])
+                                               ,("seccheckref", DEentry $ DEStr "1234567890")])
+                       ]
+          msg = testF dialogInit vals
+          expectedMsg = "HNHBK:1:3:+000000000260+220+0+1+'HNSHK:2:3:+1+1234567890+1+1+1:@10@\0\0\0\0\0\0\0\0\0\0:0+1+1:20141111:070809+1:999:1:+6:10:16+280:12030000:USERID9999:S:0:0+'HKIDN:3:2:+280:12030000+CUSTOMERID+0+1'HKVVB:4:2:+3+2+1+HsBCI+0.1.0''HNSHA:5:1:+1234567890++PIN12:'HNHBS:6:1:+1'"
+      in do assertEq msg (Right expectedMsg)
+            assertEq 260 (BS.length expectedMsg)
     ]
   ]
   where
-    testF msg vals = fillMsg 1 vals msg >>= return . gen . snd
+    testF msg vals = finalizeMsg (fillMsg vals msg) >>= return . gen
 
 parseBankPropsLineTests :: [TF.Test]
 parseBankPropsLineTests =
@@ -584,7 +637,7 @@ extractMsgTests =
                                                         ,("lang", DEentry $ DEStr "1")
                                                         ,("prodName", DEentry $ DEStr "HsBCI")
                                                         ,("prodVersion", DEentry $ DEStr "0.1.0")])]
-          retVals = do (_, msg) <- fillMsg 1 inputs dialogInitAnon
+          retVals = do msg <- finalizeMsg $ fillMsg inputs dialogInitAnon
                        let (_errors, matched) = extractMsg dialogInitAnon msg
                        return $ catMaybes [lookup k matched | k <- keys]
       in assertEq (Right vals) retVals

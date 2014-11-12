@@ -4,7 +4,7 @@ module Data.HBCI.Messages where
 import           Control.Applicative ((<$>))
 import           Control.Arrow       (second)
 import           Control.Monad       (foldM)
-import           Control.Monad.State (StateT, runStateT, mapStateT, get, modify)
+import           Control.Monad.State (StateT, evalStateT, mapStateT, get, modify)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString     as BS
 import           Data.Either         (lefts, partitionEithers, rights)
@@ -41,7 +41,7 @@ concatPrefix prefix suffix | T.null prefix = suffix
 concatPrefix prefix suffix | T.null suffix = prefix
 concatPrefix prefix suffix                 = prefix <> "." <> suffix
 
-data FillState = MkFillState { msgSize :: !Int, msgSeq :: !Int }
+data FillState = MkFillState { msgSize :: !Int, msgSeq :: !Int } deriving (Show, Eq)
 
 data FillError = FillError { path :: [T.Text], errorMsg :: T.Text } deriving (Show, Eq)
 
@@ -104,24 +104,26 @@ fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
 fillSeg entries (SEG segNm _tag minnum _ items) = augmentFillErrorPath segNm $ do
   let segEntries = M.lookup segNm entries
   if (isNothing segEntries && minnum == 0)
-    then return []
+    then modify (\x -> x { msgSize = msgSize x + 1 }) >> return []
     else do res <- traverse (fillSegItem (maybe M.empty id segEntries)) items
             -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
             modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
             return res
 
-fillMsg :: Int -> MSGEntry -> MSG -> Either T.Text (Int, MSGValue)
-fillMsg startSeq entries (MSG _reqSig _reqEnc items) =
-  case runStateT (traverse (fillSeg entries') items >>= replaceMsgSize) (MkFillState 0 startSeq) of
-    Right (x, MkFillState _ nextSeq) -> return (nextSeq, x)
+fillMsg :: MSGEntry -> MSG -> FillRes MSGValue -- Either T.Text (Int, MSGValue)
+fillMsg entries (MSG _reqSig _reqEnc items) = traverse (fillSeg entries') items
+  where
+    entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
+
+finalizeMsg :: FillRes MSGValue -> Either T.Text MSGValue
+finalizeMsg msg = case evalStateT (msg >>= replaceMsgSize) (MkFillState 0 1) of
+    Right x -> return x
     Left (FillError path msg) -> Left $ T.intercalate "." path <> ": " <> msg
   where
     replaceMsgSize ((head:[DEStr "000000000000"]:xs):ys) = do
       MkFillState sz _ <- get
       return ((head:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
     replaceMsgSize x = return x
-
-    entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
 
 -- FIXME: A use case for lenses(?)
 getValHead :: SEGValue -> Either T.Text (T.Text, T.Text)

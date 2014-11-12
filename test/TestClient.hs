@@ -3,6 +3,8 @@ module Main where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad (foldM)
+import           Control.Monad.State (get, put, modify)
+import           Control.Monad.Trans (lift)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as C8
@@ -25,6 +27,8 @@ import           Data.HBCI.HbciDef
 import           Data.HBCI.Messages
 import           Data.HBCI.Parser
 import           Data.HBCI.Types
+
+import Debug.Trace
 
 msgVals :: MSGEntry
 msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280")])])
@@ -370,10 +374,13 @@ main = do
       -- PinTan encryption. It doesn't really encrypt anything, it just chops of the
       -- head and tail of a message, renders it and embeds it in another message ('crypted message')
       crypt :: MSG -> MSGEntry -> MSG -> Either T.Text MSGValue
-      crypt (MSG reqSig reqEnc items) entries cryptMsgDef = do
+      crypt (MSG reqSig reqEnc items) entries cryptMsgDef = finalizeMsg $ do
+
         let items'     = tail $ init $ items -- FIXME: using unsafe tail and init is really bad style ...
-        (nextSeq, msgtext) <- (\(x,y) -> (x, gen y)) <$> fillMsg 2 entries (MSG reqSig reqEnc items')
-        cryptItems <- foldM (\acc (k,v) -> nestedInsert k v acc) M.empty
+        put (MkFillState 0 2)
+        msgtext <- gen <$> fillMsg entries (MSG reqSig reqEnc items')
+
+        cryptItems <- case (foldM (\acc (k,v) -> nestedInsert k v acc) M.empty
                       [(["CryptHead", "secfunc"] , DEStr "998") -- FIXME
                       ,(["CryptHead", "role"], DEStr "1") -- FIXME
 
@@ -406,14 +413,25 @@ main = do
                       ,(["MsgHead", "dialogid"], DEStr "0")
                       ,(["MsgHead", "msgnum"], DEStr "1")
                       ,(["MsgTail", "msgnum"], DEStr "1")
-                      ]
+                      ]) of
+                        Left txt -> lift $ Left $ FillError [] txt
+                        Right stuff -> lift $ Right $ stuff
 
-        let cryptMsgHead = cryptMsgDef { msgItems = init $ msgItems cryptMsgDef }
-        let cryptMsgTail = cryptMsgDef { msgItems = [last $ msgItems cryptMsgDef] }
+        get >>= \x -> trace (show x) (return ())
+        modify (\x -> x { msgSize = 0} )
+        get >>= \x -> trace (show x) (return ())
 
-        (_, filledMsgHead) <- fillMsg 1       cryptItems cryptMsgHead
-        (_, filledMsgTail) <- fillMsg nextSeq cryptItems cryptMsgTail
-        return (filledMsgHead ++ filledMsgTail)
+        filledCryptTail <- fillMsg cryptItems $ cryptMsgDef { msgItems = [last $ msgItems cryptMsgDef] }
+
+        get >>= \x -> trace (show x) (return ())
+
+        modify (\x -> x { msgSeq = 1 })
+        get >>= \x -> trace (show x) (return ())
+        filledCryptHead <- fillMsg cryptItems $ cryptMsgDef { msgItems = init $ msgItems cryptMsgDef }
+        get >>= \x -> trace (show x) (return ())
+
+        return (filledCryptHead ++ filledCryptTail)
+
 
   dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
   cryptedMsgDef <- maybe (exitWMsg "Error: Can't find 'Crypted'") return $ M.lookup "Crypted" hbciDef
@@ -445,12 +463,6 @@ main = do
 
   putStrLn $ show $ initRes
   exitSuccess
-
--- Crypted message: DKBs HBCI system complains about syntax, message size is now correct, not sure what the problem is
--- HNHBK:1:3:+000000000400+220+0+1+'
--- HNVSK:998:2:+998+1+1::0+1:20141111:110753+2:2:13:@8@:5:1:+280:12030000:17863762:V:0:0+0+'
--- HNVSD:999:1:+@251@HNSHK:2:3:+999+12345678901234+1+1+1::0+1+1:20141111:110753+1:999:1:+6:10:16+280:12030000:17863762:S:0:0+'HKIDN:3:2:+280:12030000+17863762+0+1'HKVVB:4:2:+0+0+0+HsBCI+0.1.0'HKISA:5:2:+2+124+280:12030000:17863762:S:0:0+'HNSHA:6:1:+12345678901234++12345:''
--- HNHBS:7:1:+1'
 
 -- Hbci4java:
 -- HNHBK:1:3+000000000369+220+0+1'
