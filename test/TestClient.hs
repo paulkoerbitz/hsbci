@@ -32,7 +32,7 @@ import Debug.Trace
 
 msgVals :: MSGEntry
 msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280")])])
-                     ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "0")
+                     ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "41")
                                               ,("UPD", DEentry $ DEStr "0")
                                               ,("lang", DEentry $ DEStr "0")
                                               ,("prodName", DEentry $ DEStr "HsBCI")
@@ -433,7 +433,8 @@ main = do
         return (filledCryptHead ++ filledCryptTail)
 
 
-  dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
+  -- dialogInitDef <- maybe (exitWMsg "Error: Can't find 'DialogInit'") return $ M.lookup "DialogInit" hbciDef
+  syncDef <- maybe (exitWMsg "Error: Can't find 'Synch'") return $ M.lookup "Synch" hbciDef
   cryptedMsgDef <- maybe (exitWMsg "Error: Can't find 'Crypted'") return $ M.lookup "Crypted" hbciDef
 
   dialogInitVals <- fromEither $ foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msgVals
@@ -449,19 +450,21 @@ main = do
                     ,(["KeyReq", "KeyName", "keytype"], "S")
                     ,(["KeyReq", "KeyName", "keynum"], "0") -- It's what hbci4java does for PinTan ...
                     ,(["KeyReq", "KeyName", "keyversion"], "0") -- It's what hbci4java does for PinTan ...
+
+                    ,(["Sync", "mode"], "0")
                     ]
 
   signedInitVals <- sign dialogInitVals
-  cryptedDialogInitMsg <- fromEither $ gen <$> crypt dialogInitDef signedInitVals cryptedMsgDef
+  cryptedSyncMsg <- fromEither $ gen <$> crypt syncDef signedInitVals cryptedMsgDef
 
-  C8.putStrLn $ "Message to be send:\n" <> cryptedDialogInitMsg
-  dialogInitResponse <- sendMsg props cryptedDialogInitMsg
-  C8.putStrLn $ "Message received:\n" <> dialogInitResponse
+  C8.putStrLn $ "Message to be send:\n" <> cryptedSyncMsg
+  syncResponse <- sendMsg props cryptedSyncMsg
+  C8.putStrLn $ "Message received:\n" <> syncResponse
 
-  dialogInitResDef <- maybe (exitWMsg "ERROR: Can't find 'DialogInitRes'") return $ M.lookup "DialogInitRes" hbciDef
-  initRes <- fromEither $ return . extractMsg dialogInitResDef =<< parser dialogInitResponse
+  syncResDef <- maybe (exitWMsg "ERROR: Can't find 'SynchRes'") return $ M.lookup "SynchRes" hbciDef
+  syncRes <- fromEither $ return . extractMsg syncResDef =<< parser syncResponse
 
-  putStrLn $ show $ initRes
+  putStrLn $ show $ syncRes
   exitSuccess
 
 -- Hbci4java:
