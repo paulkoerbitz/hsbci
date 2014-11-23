@@ -104,14 +104,14 @@ fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
 fillSeg entries (SEG segNm _tag minnum _ items) = augmentFillErrorPath segNm $ do
   let segEntries = M.lookup segNm entries
   if (isNothing segEntries && minnum == 0)
-    then modify (\x -> x { msgSize = msgSize x + 1 }) >> return []
+    then return []
     else do res <- traverse (fillSegItem (maybe M.empty id segEntries)) items
             -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
             modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
             return res
 
-fillMsg :: MSGEntry -> MSG -> FillRes MSGValue -- Either T.Text (Int, MSGValue)
-fillMsg entries (MSG _reqSig _reqEnc items) = traverse (fillSeg entries') items
+fillMsg :: MSGEntry -> MSG -> FillRes MSGValue
+fillMsg entries (MSG _reqSig _reqEnc items) = filter (not . null) <$> traverse (fillSeg entries') items
   where
     entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
 

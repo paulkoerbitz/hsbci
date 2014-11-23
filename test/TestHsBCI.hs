@@ -507,6 +507,16 @@ fillMsgTests =
                    [DEGItem (DEG "deg1" 0 Nothing [DEdef "de1" AN 1 Nothing 1 (Just 1) Nothing
                                                   ,DEdef "de2" AN 2 Nothing 1 (Just 1) Nothing])
                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
+    , testCase "Empty segs are removed from message (no '')" $
+      assertEq (Right [[[DEStr "1"]],[[DEStr "2"]]])
+               (finalizeMsg $ fillMsg
+                (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "1")])
+                            ,("MsgTail", M.fromList [("de2", DEentry $ DEStr "2")])])
+                (MSG False False
+                 [SEG "MsgHead"   False 0 Nothing [DEItem $ DEdef "de1" AN 0 Nothing 0 Nothing Nothing]
+                 ,SEG "InBetween" False 0 Nothing []
+                 ,SEG "MsgTail"   False 0 Nothing [DEItem $ DEdef "de2" AN 0 Nothing 0 Nothing Nothing]
+                 ]))
     -- What else to test?
     -- Validation of minsize, maxsize, minnum, maxnum
     -- Validation of DETypes
@@ -567,9 +577,9 @@ fullMsgGenTests =
                                                ,("seccheckref", DEentry $ DEStr "1234567890")])
                        ]
           msg = testF dialogInit vals
-          expectedMsg = "HNHBK:1:3:+000000000260+220+0+1+'HNSHK:2:3:+1+1234567890+1+1+1:@10@\0\0\0\0\0\0\0\0\0\0:0+1+1:20141111:070809+1:999:1:+6:10:16+280:12030000:USERID9999:S:0:0+'HKIDN:3:2:+280:12030000+CUSTOMERID+0+1'HKVVB:4:2:+3+2+1+HsBCI+0.1.0''HNSHA:5:1:+1234567890++PIN12:'HNHBS:6:1:+1'"
-      in do assertEq msg (Right expectedMsg)
-            assertEq 260 (BS.length expectedMsg)
+          expectedMsg = "HNHBK:1:3:+000000000259+220+0+1+'HNSHK:2:3:+1+1234567890+1+1+1:@10@\0\0\0\0\0\0\0\0\0\0:0+1+1:20141111:070809+1:999:1:+6:10:16+280:12030000:USERID9999:S:0:0+'HKIDN:3:2:+280:12030000+CUSTOMERID+0+1'HKVVB:4:2:+3+2+1+HsBCI+0.1.0'HNSHA:5:1:+1234567890++PIN12:'HNHBS:6:1:+1'"
+      in do assertEq (Right expectedMsg) msg
+            assertEq (BS.length expectedMsg) 259
     ]
   ]
   where

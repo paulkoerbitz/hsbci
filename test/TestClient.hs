@@ -32,7 +32,7 @@ import Debug.Trace
 
 msgVals :: MSGEntry
 msgVals = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280")])])
-                     ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "41")
+                     ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "42")
                                               ,("UPD", DEentry $ DEStr "0")
                                               ,("lang", DEentry $ DEStr "0")
                                               ,("prodName", DEentry $ DEStr "HsBCI")
@@ -444,12 +444,12 @@ main = do
                      -- FIXME
                     ,(["Idn","sysStatus"], "1") -- 0 DDV, 1 for RDH
 
-                    ,(["KeyReq", "KeyName", "userid"], userID)
-                    ,(["KeyReq", "KeyName", "country"], "280")
-                    ,(["KeyReq", "KeyName", "blz"], blz)
-                    ,(["KeyReq", "KeyName", "keytype"], "S")
-                    ,(["KeyReq", "KeyName", "keynum"], "0") -- It's what hbci4java does for PinTan ...
-                    ,(["KeyReq", "KeyName", "keyversion"], "0") -- It's what hbci4java does for PinTan ...
+                    -- ,(["KeyReq", "KeyName", "userid"], userID)
+                    -- ,(["KeyReq", "KeyName", "country"], "280")
+                    -- ,(["KeyReq", "KeyName", "blz"], blz)
+                    -- ,(["KeyReq", "KeyName", "keytype"], "S")
+                    -- ,(["KeyReq", "KeyName", "keynum"], "0") -- It's what hbci4java does for PinTan ...
+                    -- ,(["KeyReq", "KeyName", "keyversion"], "0") -- It's what hbci4java does for PinTan ...
 
                     ,(["Sync", "mode"], "0")
                     ]
