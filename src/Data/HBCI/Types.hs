@@ -7,6 +7,10 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as M
 import           Text.PrettyPrint
 
+import           Control.Monad.Reader (ReaderT)
+import           Control.Monad.State (StateT)
+import           Control.Monad.Trans.Either (EitherT)
+
 
 -- FIXME: Make things strict where appropriate
 
@@ -107,3 +111,44 @@ instance HbciPretty SEG where
 
 instance HbciPretty MSG where
   toDoc (MSG sig enc items) = text "(MSG" <+> text (show sig) <+> text (show enc) <+> toDoc items <> char ')'
+
+
+-- Idea: The HbciState should be run per user and per Bank. That way
+-- we can keep things somewhat localized.
+data BPD = MkBPD { bpdVersion    :: !T.Text
+                 , bpdMaxNumJobs :: !Int
+                 , bpdMsgSize    :: !Int
+                 , bpdOther      :: !(M.Map T.Text DEValue)
+                 } deriving (Eq, Show)
+
+data UPD = MkUPD { updVersion :: !T.Text
+                 } deriving (Eq, Show)
+
+data HbciConfig = MkHbciConfig { cfgBankProperties :: M.Map T.Text BankProperties
+                               , cfgMessages       :: M.Map T.Text MSG
+                               }
+
+data HbciState = MkHbciState { hbciStateBPD      :: Maybe BPD
+                             , hbciStateUPD      :: Maybe UPD
+                             , hbciStateDialogID :: T.Text -- FIXME: This should probably be 'Maybe T.Text'
+                             , hbciStateMsgNum   :: Int
+                             , hbciStateSysId    :: Maybe T.Text
+                             }
+
+initialHbciState = MkHbciState Nothing Nothing "0" 1 Nothing
+
+data HbciUserInfo = MkHbciUserInfo { uiUserId :: T.Text
+                                   , uiPIN    :: T.Text
+                                   , uiBLZ    :: T.Text
+                                   }
+
+data HbciError =
+  HbciErrorInputData T.Text
+  | HbciErrorInternal T.Text
+  | HbciErrorOther T.Text
+               deriving Show
+
+
+type HBCI a = ReaderT HbciConfig (StateT HbciState (EitherT HbciError IO)) a
+
+-- type HBCI a = StateT HbciState (EitherT HbciError IO) a

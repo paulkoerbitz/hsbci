@@ -415,7 +415,7 @@ main = do
                       ,(["MsgTail", "msgnum"], DEStr "1")
                       ]) of
                         Left txt -> lift $ Left $ FillError [] txt
-                        Right stuff -> lift $ Right $ stuff
+                        Right stuff -> lift $ Right stuff
 
         get >>= \x -> trace (show x) (return ())
         modify (\x -> x { msgSize = 0} )

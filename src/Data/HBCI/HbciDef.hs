@@ -263,6 +263,7 @@ parseBankPropsLine :: BS.ByteString -> Either T.Text (T.Text, BankProperties)
 parseBankPropsLine line = do
   when (T.length blz /= 8) $ Left ("BLZ '" <> blz <> "' has wrong format")
   when (length props /= 9) $ Left ("Properties have the wrong format")
+  -- FIXME: Incomplete pattern warning ...
   let (name:city:bic:_:hbciUrl:pinTanUrl:hbciVersion:pinTanVersion:_) = props
   return (blz, BankProperties name city bic hbciUrl pinTanUrl hbciVersion pinTanVersion)
   where
