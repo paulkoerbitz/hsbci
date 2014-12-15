@@ -13,6 +13,7 @@ import           Control.Monad.State        (get, put, modify)
 import qualified Data.ByteString.Char8 as C8
 
 import           Data.Monoid ((<>))
+import           Data.Maybe (catMaybes)
 
 import qualified Data.Text as T
 import qualified Data.Text.Read as TR
@@ -62,15 +63,15 @@ instance Job GetBalance where
                                       ])
                ]
 
-  getResult job vals = do
+  getResult _job vals = do
     bal <- maybe (Left $ HbciErrorInternal "Saldo5: Didn't find expected field 'booked.BTG.value'") Right bookedBal
     return $! GetBalanceResult bal currentBal overdraft
     where
       -- FIXME: Could also lookup currency, account number to check
       -- it's actually for the correct account, etc...
-      bookedBal  = deToInt =<< lookup "booked.BTG.value" vals
-      currentBal = deToInt =<< lookup "pending.BTG.value" vals -- FIXME: Is this correct?
-      overdraft  = deToInt =<< lookup "kredit.value" vals
+      bookedBal  = btgToInt =<< lookup "SaldoRes5.booked.BTG.value" vals
+      currentBal = btgToInt =<< lookup "SaldoRes5.pending.BTG.value" vals -- FIXME: Is this correct?
+      overdraft  = btgToInt =<< lookup "SaldoRes5.kredit.value" vals
 
 
 sendHbciJobs :: Job x => HbciUserInfo -> x -> HBCI (JobResult x)
@@ -121,6 +122,15 @@ readInt x = case TR.decimal x of
 deToInt :: DEValue -> Maybe Int
 deToInt x = deToTxt x >>= readInt
 
+btgToInt :: DEValue -> Maybe Int
+btgToInt x = do
+  txt <- deToTxt x
+  case TR.decimal txt of
+    Right (euros, rest) -> case ("," `T.isPrefixOf` rest, TR.decimal $ T.drop 1 rest) of
+      (True, Right (cents, _)) -> Just $ euros * 100 + cents
+      _ -> Nothing
+    _ -> Nothing
+
 updateBPD :: [(T.Text, DEValue)] -> Maybe BPD
 updateBPD stuff = MkBPD <$> (deToTxt =<< lookup "BPA.version" stuff)
                         <*> (deToInt =<< lookup "BPA.numgva" stuff)
@@ -131,18 +141,18 @@ updateBPD stuff = MkBPD <$> (deToTxt =<< lookup "BPA.version" stuff)
 updateUPD :: [(T.Text, DEValue)] -> Maybe UPD
 updateUPD stuff = MkUPD <$> (deToTxt =<< lookup "UPA.version" stuff)
 
-sign :: FormatTime t => t -> HbciUserInfo -> MSGEntry -> Either T.Text MSGEntry
-sign localTime (MkHbciUserInfo userID pin blz) msg =
+sign :: FormatTime t => t -> Maybe T.Text -> [TanMode] -> HbciUserInfo -> MSGEntry -> Either T.Text MSGEntry
+sign localTime sysid tanModes (MkHbciUserInfo userID pin blz) msg =
   foldM (\acc (k,v) -> nestedInsert k (DEStr v) acc) msg
-  [(["SigHead", "secfunc"], secfunc_sig_pt_1step) -- Must be '1' or '2', I'll try '1' here
-  ,(["SigHead", "seccheckref"], "12345678901234") -- Random number which must ocurr both in head and tail
+  [(["SigHead", "secfunc"], head $ map tanModeSecfunc tanModes ++ [secfunc_sig_pt_1step])
+  ,(["SigHead", "seccheckref"], "1234567890") -- Random number which must ocurr both in head and tail
   ,(["SigHead", "range"], "1") -- This must be 1 apparently
   ,(["SigHead", "role"], "1") -- 1, 3 or 4. 1: Issuer, 3: Cosigned, 4: Witness. Probably always 1.
   ,(["SigHead", "SecIdnDetails", "func"], "1") -- 1 for User messages, 2 for 'XyzRes'
    -- Something binary, can be empty, we'll leave this out for now.
    -- Hbci4Java sets this for DDV and RDH passports, I think to a random number, can be left out for now
    -- ,(["SigHead", "SecIdnDetails", "cid"], "0")
-  ,(["SigHead", "SecIdnDetails", "sysid"], "0") -- must be obtained with a sync call -- maybe hbci does this before
+  ,(["SigHead", "SecIdnDetails", "sysid"], maybe "0" id sysid) -- must be obtained with a sync call -- maybe hbci does this before
 
    -- This is the sigid. Apparently Hbci4Java increments this every time we create a signature.
    -- Not sure if this is persisted accross requests. I think it is not.
@@ -163,12 +173,12 @@ sign localTime (MkHbciUserInfo userID pin blz) msg =
   ,(["SigHead", "KeyName", "keyversion"], "0") -- It's what hbci4java does for PinTan ...
 
   ,(["SigTail", "UserSig", "pin"], pin)
-  ,(["SigTail", "seccheckref"], "12345678901234")
+  ,(["SigTail", "seccheckref"], "1234567890")
   ]
 
 
 crypt ::  FormatTime t => t -> HbciState -> HbciUserInfo -> MSG -> MSG -> MSGEntry -> Either T.Text MSGValue
-crypt localTime (MkHbciState _ _ dialogID msgNum sysID) (MkHbciUserInfo userID pin blz) cryptMsgDef (MSG reqSig reqEnc items) entries = finalizeMsg $ do
+crypt localTime (MkHbciState _ _ dialogID msgNum sysID _) (MkHbciUserInfo userID _pin blz) cryptMsgDef (MSG reqSig reqEnc items) entries = finalizeMsg $ do
 
   -- FIXME: This is carp ...
   items' <- let n = length items
@@ -235,6 +245,17 @@ decrypt cryptedResDef msgVal =
     _                    -> Left "Coundn't decrypt message"
 
 
+-- FIXME: Need to uniquify the tan modes in some way ...
+findTanModes :: [(T.Text, DEValue)] -> [TanMode]
+findTanModes response = catMaybes $ map mkTanMode modes
+  where
+    f i               = let nm = "TAN2StepPar" <> T.pack (show i) in (nm, filter (\x -> nm `T.isPrefixOf` (fst x)) response)
+    modes             = filter (not . null . snd) $ map f  [1..(5::Int)]
+    mkTanMode (nm,xs) = MkTanMode <$> (deToTxt =<< lookup (nm <> ".ParTAN2Step.secfunc") xs)
+                                  <*> (deToTxt =<< lookup (nm <> ".ParTAN2Step.name") xs)
+                                  <*> (deToTxt =<< lookup (nm <> ".ParTAN2Step.id") xs)
+
+
 sendSync :: HbciUserInfo -> HBCI ()
 sendSync ui@(MkHbciUserInfo userID _ blz) = do
   -- Synch.Idn.KIK.blz to "10050000"
@@ -253,7 +274,7 @@ sendSync ui@(MkHbciUserInfo userID _ blz) = do
   -- Synch.Sync.mode to "0"
 
   MkHbciConfig bankProps hbciDef <- ask
-  MkHbciState bpd upd did msgnum sysid <- get
+  hbciSt@(MkHbciState bpd upd _did _msgnum sysid tanModes) <- get
   props <- fromMaybe (HbciErrorInputData ("Unknown BLZ: " <> blz)) $ M.lookup blz bankProps
   msgDef <- fromMaybe (HbciErrorInternal "Can't find definition of Synch") $ M.lookup "Synch" hbciDef
   cryptedMsgDef <- fromMaybe (HbciErrorInternal "Can't find definition of Crypted") $ M.lookup "Crypted" hbciDef
@@ -263,7 +284,7 @@ sendSync ui@(MkHbciUserInfo userID _ blz) = do
   let msgVals = M.fromList
                 [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr blz)])
                                     ,("customerid", DEentry $ DEStr userID)
-                                    ,("sysid", DEentry $ DEStr $ maybe "0" id sysid)
+                                    ,("sysid", DEentry $ DEStr "0") -- $ maybe "0" id sysid)
                                     ,("sysStatus", DEentry $ DEStr "1")])
                 ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr $ maybe "0" bpdVersion bpd)
                                          ,("UPD", DEentry $ DEStr $ maybe "0" updVersion upd)
@@ -276,7 +297,7 @@ sendSync ui@(MkHbciUserInfo userID _ blz) = do
   -- msgDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogInitAnon") $ M.lookup "DialogInitAnon" hbciDef
 
   -- msg <-  fromEither $ gen <$> finalizeMsg (fillMsg msgVals msgDef)
-  msg <- fromEither $ gen <$> (crypt localTime (MkHbciState bpd upd did msgnum sysid) ui cryptedMsgDef msgDef =<< sign localTime ui msgVals)
+  msg <- fromEither $ gen <$> (crypt localTime hbciSt ui cryptedMsgDef msgDef =<< sign localTime sysid tanModes ui msgVals)
 
   liftIO $ C8.putStrLn $ "Sending:  " <> msg
   -- FIXME: The only point where we need IO. This should be pulled out and the main monad should not be in IO
@@ -296,15 +317,19 @@ sendSync ui@(MkHbciUserInfo userID _ blz) = do
   let bpd'      = updateBPD knownRes
       upd'      = updateUPD knownRes
       sysID'    = deToTxt =<< lookup "SyncRes.sysid" knownRes
+      tanModes' = findTanModes knownRes
 
-  -- liftIO $ putStrLn $ "New BPD: " ++ show bpd'
-  -- liftIO $ putStrLn $ "New UPD: " ++ show upd'
+  liftIO $ putStrLn $ "TanModes: " ++ show tanModes'
+
+  -- Extract security function stuff
+  -- tanModes <-
 
   dialogID' <- fromMaybe (HbciErrorInternal "SynchResponse: new dialogid could not be found") $ deToTxt =<< lookup "MsgHead.dialogid" knownRes
   -- sysID' <- fromMaybe (HbciErrorInternal "SynchResponse: new sysid could not be found") $ deToTxt =<< lookup "" knownRes
 
 
-  put (MkHbciState bpd' upd' dialogID' (msgnum+1) sysID')
+  -- modify (\x -> x { hbciStateBPD = bpd', hbciStateUPD = upd', hbciStateDialogID = dialogID', hbciStateMsgNum = hbciStateMsgNum x + 1, hbci
+  put (MkHbciState bpd' upd' dialogID' (hbciStateMsgNum hbciSt + 1) sysID' tanModes')
 
 
 sendDialogInit :: HbciUserInfo -> HBCI ()
@@ -323,10 +348,11 @@ sendDialogInit ui@(MkHbciUserInfo userID _ blz) = do
   -- DialogInit.ProcPrep.prodVersion to "2.5"
 
   MkHbciConfig bankProps hbciDef <- ask
-  MkHbciState bpd upd did msgnum sysid <- get
+  MkHbciState bpd upd _did _msgnum sysid tanModes <- get
   props <- fromMaybe (HbciErrorInputData ("Unknown BLZ: " <> blz)) $ M.lookup blz bankProps
   msgDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogInit") $ M.lookup "DialogInit" hbciDef
   cryptedMsgDef <- fromMaybe (HbciErrorInternal "Can't find definition of Crypted") $ M.lookup "Crypted" hbciDef
+  cryptedResDef <- fromMaybe (HbciErrorInternal "Can't find definition of CryptedRes") $ M.lookup "CryptedRes" hbciDef
   ZonedTime localTime _ <- liftIO $ getZonedTime
 
   let msgVals = M.fromList
@@ -338,13 +364,13 @@ sendDialogInit ui@(MkHbciUserInfo userID _ blz) = do
                                          ,("UPD", DEentry $ DEStr $ maybe "0" updVersion upd)
                                          ,("lang", DEentry $ DEStr "1")
                                          ,("prodName", DEentry $ DEStr "HsBCI")
-                                         ,("prodVersion", DEentry $ DEStr "0.1.0")])
+                                         ,("prodVersion", DEentry $ DEStr "0.1")])
                 ]
 
   -- msgDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogInitAnon") $ M.lookup "DialogInitAnon" hbciDef
 
   -- msg <-  fromEither $ gen <$> finalizeMsg (fillMsg msgVals msgDef)
-  msg <- fromEither $ gen <$> (crypt localTime (MkHbciState bpd upd did msgnum sysid) ui cryptedMsgDef msgDef =<< sign localTime ui msgVals)
+  msg <- fromEither $ gen <$> (crypt localTime (MkHbciState bpd upd "0" 1 sysid tanModes) ui cryptedMsgDef msgDef =<< sign localTime sysid tanModes ui msgVals)
 
   liftIO $ C8.putStrLn $ "Sending:  " <> msg
   initResponse <- sendMsg props msg
@@ -353,28 +379,26 @@ sendDialogInit ui@(MkHbciUserInfo userID _ blz) = do
   -- initResDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogInitAnonRes") $ M.lookup "DialogInitAnonRes" hbciDef
   initResDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogInitRes") $ M.lookup "DialogInitRes" hbciDef
 
-  (unknownRes, knownRes) <- fromEither $ return . extractMsg initResDef =<< parser initResponse
+  (unknownRes, knownRes) <- fromEither $ return . extractMsg initResDef =<< decrypt cryptedResDef =<< parser initResponse
 
-  -- liftIO $ putStrLn $ show knownRes
+  liftIO $ putStrLn $ show knownRes
 
   when (not $ null unknownRes) $ throw $ HbciErrorInternal "DialogInitAnonRes: Unknown response"
 
-  -- Hbci4Java HKIDN:3:2+280:10050000+6015813332M+5194392401811301+1'HKVVB:4:2+49+0+1+HBCI4Java+2.5
-  -- Me:       HKIDN:3:2:+280:12030000+XY4AfEPq87e3vbb+0+1'          HKVVB:4:2:+42+0+1+HsBCI+0.1.0
   -- FIXME: This is crap ... these must be able to fail and report an error ...
   let bpd'      = updateBPD knownRes
       upd'      = updateUPD knownRes
 
   dialogId' <- fromMaybe (HbciErrorInternal "Can't find the freaking dialogid") $ deToTxt =<< lookup "MsgHead.dialogid" knownRes
 
-  put (MkHbciState bpd' upd' dialogId' (msgnum+1) sysid)
+  put (MkHbciState bpd' upd' dialogId' 2 sysid tanModes)
 
 
 sendDialogEnd :: HbciUserInfo -> HBCI ()
 sendDialogEnd (MkHbciUserInfo _ _ blz) = do
   -- This works ;) (Needs some fixes of course)
   MkHbciConfig bankProps hbciDef <- ask
-  MkHbciState bpd upd did msgnum sysid <- get
+  MkHbciState _bpd _upd did msgnum _sysid _tanModes <- get
 
   -- FIXME: msgnum
   let msgVals = M.fromList [("MsgHead", M.fromList [("dialogid", DEentry $ DEStr did), ("msgnum", DEentry $ DEStr $ T.pack $ show msgnum)])
@@ -394,7 +418,7 @@ sendDialogEnd (MkHbciUserInfo _ _ blz) = do
 
   endResDef <- fromMaybe (HbciErrorInternal "Can't find definition of DialogEndAnonRes") $ M.lookup "DialogEndAnonRes" hbciDef
 
-  (unknownRes, knownRes) <- fromEither $ return . extractMsg endResDef =<< parser endResponse
+  (unknownRes, _knownRes) <- fromEither $ return . extractMsg endResDef =<< parser endResponse
 
   when (not $ null unknownRes) $ throw $ HbciErrorInternal "DialogEndAnonRes: Unknown response"
 
@@ -408,10 +432,12 @@ sendJobsInternal ui@(MkHbciUserInfo _ _ blz) jobs = do
   -- Send jobs, extract return values and assign them
   -- to the job results
   MkHbciConfig bankProps hbciDef <- ask
-  MkHbciState bpd upd did msgnum sysid <- get
+  MkHbciState bpd upd did msgnum sysid tanModes <- get
   props <- fromMaybe (HbciErrorInputData ("Unknown BLZ: " <> blz)) $ M.lookup blz bankProps
   msgDef <- fromMaybe (HbciErrorInternal "Can't find definition of CustomMsg") $ M.lookup "CustomMsg" hbciDef
+  msgResDef <- fromMaybe (HbciErrorInternal "Can't find definition of CustomMsgRes") $ M.lookup "CustomMsgRes" hbciDef
   cryptedMsgDef <- fromMaybe (HbciErrorInternal "Can't find definition of Crypted") $ M.lookup "Crypted" hbciDef
+  cryptedResDef <- fromMaybe (HbciErrorInternal "Can't find definition of CryptedRes") $ M.lookup "CryptedRes" hbciDef
   ZonedTime localTime _ <- liftIO $ getZonedTime
 
   -- liftIO $ putStrLn $ "dialogID is: " ++ show did ++ ", messageNum: " ++ show msgnum
@@ -421,27 +447,21 @@ sendJobsInternal ui@(MkHbciUserInfo _ _ blz) jobs = do
                            ]
                 `M.union` getParams ui jobs
 
-  msg <- fromEither $ gen <$> (crypt localTime (MkHbciState bpd upd did msgnum sysid) ui cryptedMsgDef msgDef =<< sign localTime ui msgVals)
+  msg <- fromEither $ gen <$> (crypt localTime (MkHbciState bpd upd did msgnum sysid tanModes) ui cryptedMsgDef msgDef =<< sign localTime sysid tanModes ui msgVals)
 
   liftIO $ C8.putStrLn $ "Sending:  " <> msg
   resp <- sendMsg props msg
   liftIO $ C8.putStrLn $ "Received: " <> resp
 
-  cryptedResDef <- fromMaybe (HbciErrorInternal "Can't find definition of CryptedRes") $ M.lookup "CryptedRes" hbciDef
+  (unknownRes, knownRes) <- fromEither $ return . extractMsg msgResDef =<< decrypt cryptedResDef =<< parser resp
 
-  (unknownRes, knownRes) <- fromEither $ return . extractMsg cryptedResDef =<< parser resp
+  liftIO $ putStrLn $ show knownRes
 
   when (not $ null unknownRes) $ throw $ HbciErrorInternal "ResponseDef: Unknown response"
 
   modify (\x -> x { hbciStateMsgNum = hbciStateMsgNum x + 1 })
 
   lift . lift . hoistEither $! getResult jobs knownRes
-
-
--- Hbci4Java
--- HNHBK:1:3+000000000369+220+0618073501811301+2'HNVSK:998:2+998+1+1::5194392401811301+1:20141031:171054+2:2:13:@8@        :5:1+280:10050000:6015813332M:V:0:0+0'HNVSD:999:1+@181@HNSHK:2:3+920+2096538804+1+1+1::5194392401811301+1+1:20141031:171054+1:999:1+6:10:16+280:10050000:6015813332M:S:0:0'HKSAL:3:5+6015813332::280:10050000+N'HNSHA:4:1+2096538804++XXXXX''HNHBS:5:1+2'
---
--- HNHBK:1:3:+000000000368+220+8459512291611121+2+'HNVSK:998:2:+998+1+1::0+1:20141211:161922+2:2:13:@8@:5:1:+280:12030000:XY4AfEPq87e3vbb:V:0:0+0+'HNVSD:999:1:+@184@HNSHK:2:3:+999+12345678901234+1+1+1::0+1+1:20141211:161922+1:999:1:+6:10:16+280:12030000:XY4AfEPq87e3vbb:S:0:0+'HKSAL:3:5:+17863762::280:12030000+N++'HNSHA:4:1:+12345678901234++Rc5Jc:''HNHBS:5:1:+2'
 
 
 getHbciConfig :: IO (Either T.Text HbciConfig)
