@@ -56,7 +56,7 @@ augmentFillErrorPath pathSeg = mapStateT $ \x ->
 updateSize :: DEValue -> FillRes DEValue
 updateSize (DEStr v)    = modify (\x -> x { msgSize = msgSize x + T.length v }) >> lift (Right (DEStr v))
 updateSize (DEBinary b) = let lengthBody   = BS.length b
-                              lengthHeader = 2 + length (show lengthBody)
+                              lengthHeader = if BS.null b then 0 else 2 + length (show lengthBody)
                           in modify (\x -> x { msgSize = msgSize x + lengthBody + lengthHeader }) >> lift (Right (DEBinary b))
 
 fillDe :: Maybe DEValue -> DE -> FillRes DEValue
@@ -80,35 +80,45 @@ isDeVal :: DE -> Bool
 isDeVal (DEval _) = True
 isDeVal _         = False
 
+isDeEmpty :: DEValue -> Bool
+isDeEmpty (DEStr s)    = T.null s
+isDeEmpty (DEBinary b) = BS.null b
+
 fillSegItem :: SEGEntry -> SEGItem -> FillRes DEGValue
 fillSegItem _       (DEItem de@(DEval _))                   = (:[]) <$> fillDe Nothing de
 fillSegItem entries (DEItem de@(DEdef deNm _ _ _ _ _ _))    =
   case M.lookup deNm entries of
     Just (DEGentry _)      -> lift $! Left $! FillError [deNm] "Expected DEentry but found DEGentry"
-    Nothing                -> (:[]) <$> fillDe Nothing de
-    Just (DEentry deEntry) -> (:[]) <$> fillDe (Just deEntry) de
+    Nothing                -> filterEnd (not . isDeEmpty) <$> ((:[]) <$> fillDe Nothing de)
+    Just (DEentry deEntry) -> filterEnd (not . isDeEmpty) <$> ((:[]) <$> fillDe (Just deEntry) de)
 fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
   augmentFillErrorPath degnm $
     case M.lookup degnm entries of
       Nothing -> if minnum == 0
                  then return []
-                 else do modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
-                         traverse (fillDe Nothing) degitems
+                 else do result <- filterEnd (not . isDeEmpty) <$> traverse (fillDe Nothing) degitems
+                         modify (\x -> x { msgSize = msgSize x + max (length result - 1) 0 })
+                         return result
       Just (DEentry _) -> lift $! Left $! FillError [degnm] "Expected 'DEGentry' for but found DEentry"
       Just (DEGentry degentries) -> do
-        modify (\x -> x { msgSize = msgSize x + max (length degitems - 1) 0 })
-        traverse (\de -> if isDeVal de then fillDe Nothing de else fillDe (M.lookup (deName de) degentries) de) degitems
+        result <- filterEnd (not . isDeEmpty) <$> traverse (\de -> if isDeVal de then fillDe Nothing de else fillDe (M.lookup (deName de) degentries) de) degitems
+        modify (\x -> x { msgSize = msgSize x + max (length result - 1) 0 })
+        return result
 
+
+-- remove the longest consequitve sublist at the end for which the predicate is true
+filterEnd :: (a -> Bool) -> [a] -> [a]
+filterEnd p = foldr (\x acc -> if p x || not (null acc) then x:acc else []) []
 
 fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
 fillSeg entries (SEG segNm _tag minnum _ items) = augmentFillErrorPath segNm $ do
   let segEntries = M.lookup segNm entries
   if (isNothing segEntries && minnum == 0)
     then return []
-    else do res <- traverse (fillSegItem (maybe M.empty id segEntries)) items
-            -- msgSize: length items - 1 (for the + in between items) + 1 (for the ' after the seg)
-            modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length items})
-            return res
+    else do result <- filterEnd (not . null) <$> traverse (fillSegItem (maybe M.empty id segEntries)) items
+            -- msgSize: length res - 1 (for the + in between items) + 1 (for the ' after the seg)
+            modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length result})
+            return result
 
 fillMsg :: MSGEntry -> MSG -> FillRes MSGValue
 fillMsg entries (MSG _reqSig _reqEnc items) = filter (not . null) <$> traverse (fillSeg entries') items

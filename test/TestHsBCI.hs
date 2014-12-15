@@ -540,7 +540,7 @@ fullMsgGenTests =
                                                 ])
                        ]
       in assertEq
-         (Right "HNHBK:1:3:+000000000114+220+0+1+'HKIDN:2:2:+280:12030000+9999999999+0+0'HKVVB:3:2:+3+2+1+HsBCI+0.1.0'HNHBS:4:1:+1'")
+         (Right "HNHBK:1:3+000000000109+220+0+1'HKIDN:2:2+280:12030000+9999999999+0+0'HKVVB:3:2+3+2+1+HsBCI+0.1.0'HNHBS:4:1+1'")
          (testF dialogInitAnon vals)
     , testCase "DialogInit" $
       let vals =
@@ -577,9 +577,9 @@ fullMsgGenTests =
                                                ,("seccheckref", DEentry $ DEStr "1234567890")])
                        ]
           msg = testF dialogInit vals
-          expectedMsg = "HNHBK:1:3:+000000000259+220+0+1+'HNSHK:2:3:+1+1234567890+1+1+1:@10@\0\0\0\0\0\0\0\0\0\0:0+1+1:20141111:070809+1:999:1:+6:10:16+280:12030000:USERID9999:S:0:0+'HKIDN:3:2:+280:12030000+CUSTOMERID+0+1'HKVVB:4:2:+3+2+1+HsBCI+0.1.0'HNSHA:5:1:+1234567890++PIN12:'HNHBS:6:1:+1'"
-      in do assertEq (Right expectedMsg) msg
-            assertEq (BS.length expectedMsg) 259
+          expectedMsg = "HNHBK:1:3+000000000249+220+0+1'HNSHK:2:3+1+1234567890+1+1+1:@10@\0\0\0\0\0\0\0\0\0\0:0+1+1:20141111:070809+1:999:1+6:10:16+280:12030000:USERID9999:S:0:0'HKIDN:3:2+280:12030000+CUSTOMERID+0+1'HKVVB:4:2+3+2+1+HsBCI+0.1.0'HNSHA:5:1+1234567890++PIN12'HNHBS:6:1+1'"
+      in do assertEq msg (Right expectedMsg)
+            assertEq 249 (BS.length expectedMsg)
     ]
   ]
   where
