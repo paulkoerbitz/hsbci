@@ -39,7 +39,7 @@ parseBinary bs i = do
   when (BS.length bs <= i'+1+n) $ Left "parseBinary: string after '@' too short"
   return (DEBinary (BS.take n (BS.drop (i'+1) bs)), i'+1+n)
 
-data PST = MkPST { msg :: MSGValue, seg :: SEGValue, deg :: DEGValue }
+data PST = MkPST { pstMsg :: MSGValue, pstSeg :: SEGValue, pstDeg :: DEGValue }
 
 parser :: BS.ByteString -> Either T.Text MSGValue
 parser bs = if BS.null bs then return [] else evalStateT (go [] 0) (MkPST [] [] [])
@@ -56,19 +56,19 @@ parser bs = if BS.null bs then return [] else evalStateT (go [] 0) (MkPST [] [] 
     go stk i | bs .@ i == qmark = do ensureLength (i+2)
                                      go ((bs .@ i+1):stk) (i+2)
     go []  i | bs .@ i == at    = do (de, i') <- lift $ parseBinary bs (i+1)
-                                     modify (\x -> x { deg = de : deg x})
+                                     modify (\x -> x { pstDeg = de : pstDeg x})
                                      go [] i'
     go _   i | bs .@ i == at    = lift $ Left $ errorAt i <> " binary form within other element"
     go stk i | bs .@ i == colon = do ensureLength (i+1)
-                                     modify (\x -> x { deg = addDE stk (deg x) })
+                                     modify (\x -> x { pstDeg = addDE stk (pstDeg x) })
                                      go [] (i+1)
     go stk i | bs .@ i == plus  = do ensureLength (i+1)
-                                     modify (\x -> x { deg = [], seg = reverse (addDE stk (deg x)) : seg x })
+                                     modify (\x -> x { pstDeg = [], pstSeg = reverse (addDE stk (pstDeg x)) : pstSeg x })
                                      go [] (i+1)
     go stk i | bs .@ i == quote = do x <- get
-                                     let msg' = reverse (reverse (addDE stk (deg x)) : seg x) : msg x
+                                     let msg' = reverse (reverse (addDE stk (pstDeg x)) : pstSeg x) : pstMsg x
                                      if i+1 == n then return $ reverse msg'
-                                       else do put $ MkPST { deg = [], seg = [], msg = msg' }
+                                       else do put $ MkPST { pstDeg = [], pstSeg = [], pstMsg = msg' }
                                                go [] (i+1)
     go stk i                    = ensureLength (i+1) >> go ((bs .@ i) : stk) (i+1)
 

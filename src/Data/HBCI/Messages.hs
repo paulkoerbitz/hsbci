@@ -50,8 +50,8 @@ type FillRes = StateT FillState (Either FillError)
 augmentFillErrorPath :: T.Text -> FillRes a -> FillRes a
 augmentFillErrorPath pathSeg = mapStateT $ \x ->
   case x of
-    Left (FillError path msg) -> Left $! FillError (pathSeg : path) msg
-    Right y                   -> Right $! y
+    Left (FillError errPath msg) -> Left $! FillError (pathSeg : errPath) msg
+    Right y                      -> Right $! y
 
 updateSize :: DEValue -> FillRes DEValue
 updateSize (DEStr v)    = modify (\x -> x { msgSize = msgSize x + T.length v }) >> lift (Right (DEStr v))
@@ -128,11 +128,11 @@ fillMsg entries (MSG _reqSig _reqEnc items) = filter (not . null) <$> traverse (
 finalizeMsg :: FillRes MSGValue -> Either T.Text MSGValue
 finalizeMsg msg = case evalStateT (msg >>= replaceMsgSize) (MkFillState 0 1) of
     Right x -> return x
-    Left (FillError path msg) -> Left $ T.intercalate "." path <> ": " <> msg
+    Left (FillError errPath errMsg) -> Left $ T.intercalate "." errPath <> ": " <> errMsg
   where
-    replaceMsgSize ((head:[DEStr "000000000000"]:xs):ys) = do
+    replaceMsgSize ((hd:[DEStr "000000000000"]:xs):ys) = do
       MkFillState sz _ <- get
-      return ((head:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
+      return ((hd:[DEStr (T.justifyRight 12 '0' $ T.pack (show sz))]:xs):ys)
     replaceMsgSize x = return x
 
 -- FIXME: A use case for lenses(?)
