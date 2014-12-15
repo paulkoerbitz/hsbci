@@ -128,14 +128,22 @@ data HbciConfig = MkHbciConfig { cfgBankProperties :: M.Map T.Text BankPropertie
                                , cfgMessages       :: M.Map T.Text MSG
                                }
 
-data HbciState = MkHbciState { hbciStateBPD      :: Maybe BPD
-                             , hbciStateUPD      :: Maybe UPD
-                             , hbciStateDialogID :: T.Text -- FIXME: This should probably be 'Maybe T.Text'
-                             , hbciStateMsgNum   :: Int
-                             , hbciStateSysId    :: Maybe T.Text
+data TanMode = MkTanMode { tanModeSecfunc :: !T.Text
+                         , tanModeName    :: !T.Text
+                         , tanModeId      :: !T.Text
+                         } deriving (Eq, Show)
+
+data HbciState = MkHbciState { hbciStateBPD      :: !(Maybe BPD)
+                             , hbciStateUPD      :: !(Maybe UPD)
+                             , hbciStateDialogID :: !T.Text -- FIXME: This should probably be 'Maybe T.Text'
+                             , hbciStateMsgNum   :: !Int
+                             , hbciStateSysId    :: !(Maybe T.Text)
+                             , hbciStateTanModes :: !([TanMode])
                              }
 
-initialHbciState = MkHbciState Nothing Nothing "0" 1 Nothing
+
+initialHbciState :: HbciState
+initialHbciState = MkHbciState Nothing Nothing "0" 1 Nothing []
 
 data HbciUserInfo = MkHbciUserInfo { uiUserId :: T.Text
                                    , uiPIN    :: T.Text
