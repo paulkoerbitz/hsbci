@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, BangPatterns #-}
+{-# LANGUAGE OverloadedStrings, BangPatterns, GeneralizedNewtypeDeriving, FlexibleContexts #-}
 module Data.HBCI.Types where
 
 -- import qualified Data.Vector as V
@@ -7,10 +7,12 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as M
 import           Text.PrettyPrint
 
-import           Control.Monad.Reader (ReaderT)
-import           Control.Monad.State (StateT)
-import           Control.Monad.Trans.Either (EitherT)
-
+import           Control.Monad (liftM)
+import           Control.Applicative (Applicative, (<$>))
+import           Control.Monad.Reader (ReaderT, MonadReader, ask, runReaderT)
+import           Control.Monad.State (StateT, MonadState, get, put, runStateT, evalStateT, execStateT)
+import           Control.Monad.Trans.Either (EitherT, hoistEither, left, right)
+import           Control.Monad.Trans (MonadIO, lift, liftIO)
 
 -- FIXME: Make things strict where appropriate
 
@@ -154,9 +156,51 @@ data HbciError =
   HbciErrorInputData T.Text
   | HbciErrorInternal T.Text
   | HbciErrorOther T.Text
-               deriving Show
+  deriving Show
 
+
+-- FIXME: I might not want to throw the new state away even on error. Then the EitherT
+-- transformer must go outside of the state transformer ... I'm not entirely sure about
+-- this so I am going to punt on it for now ...
+
+newtype Hbci a =
+  Hbci { runHbci' :: ReaderT HbciConfig (StateT HbciState (Either HbciError)) a
+       } deriving (Functor, Applicative, Monad, MonadReader HbciConfig, MonadState HbciState)
+
+runHbci :: HbciConfig -> HbciState -> Hbci a -> Either HbciError (a, HbciState)
+runHbci conf state action = runStateT (runReaderT (runHbci' action) conf) state
+
+evalHbci :: HbciConfig -> HbciState -> Hbci b -> Either HbciError b
+evalHbci conf state action = fst <$> runHbci conf state action
+
+data HbciConfInternal = HbciConfInternal { confConfig :: HbciConfig, confState :: HbciState }
+
+newtype HbciConf a =
+  HbciConf { runHbciConf :: ReaderT HbciConfInternal (Either HbciError) a
+           } deriving (Functor, Applicative, Monad, MonadReader HbciConfInternal)
+
+askConfig :: MonadReader HbciConfInternal m => m HbciConfig
+askConfig = liftM confConfig $ ask
+
+askState :: MonadReader HbciConfInternal m => m HbciState
+askState = liftM confState $ ask
+
+liftConf :: HbciConf a -> Hbci a
+liftConf action = do
+  conf <- ask
+  state <- get
+  Hbci $! lift $! lift $! runReaderT (runHbciConf action) (HbciConfInternal conf state)
+
+newtype HbciIO a =
+  HbciIO { runHbciIO :: ReaderT HbciConfig (StateT HbciState (EitherT HbciError IO)) a
+         } deriving (Functor, Applicative, Monad, MonadReader HbciConfig, MonadState HbciState, MonadIO)
+
+liftHbci :: Hbci a -> HbciIO a
+liftHbci action = do
+  conf <- ask
+  state <- get
+  case runHbci conf state action of
+    Left err -> HbciIO $! lift $! lift $! left err
+    Right (res, state') -> put state' >> return res
 
 type HBCI a = ReaderT HbciConfig (StateT HbciState (EitherT HbciError IO)) a
-
--- type HBCI a = StateT HbciState (EitherT HbciError IO) a
