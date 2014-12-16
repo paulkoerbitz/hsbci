@@ -97,8 +97,8 @@ getRequiredAttr line elemName attrName attrs =
   merr line ("Required attribute '" <> T.pack attrName <> "' missing in " <> elemName) $ T.pack <$> findAttrByKey attrName attrs
 
 getReferencedItem :: T.Text -> Maybe Line -> M.Map T.Text a -> T.Text -> Either T.Text a
-getReferencedItem name line map key =
-  maybe (err line (name <> ": Referenced element '" <> key <> "' not found")) Right (M.lookup key map)
+getReferencedItem name line itemMap key =
+  maybe (err line (name <> ": Referenced element '" <> key <> "' not found")) Right (M.lookup key itemMap)
 
 elemToDE :: Element -> Either T.Text DE
 elemToDE (Element nm attrs _ line) = do

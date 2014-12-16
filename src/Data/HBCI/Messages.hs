@@ -198,13 +198,13 @@ extractMsg msgDef msgVal =
   second concat $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal
 
 nestedInsert :: [T.Text] -> DEValue -> MSGEntry -> Either T.Text MSGEntry
-nestedInsert keys@[segName,degName,deName] v entries =
-  let segMap = maybe M.empty id $ M.lookup segName entries
-      degMap = maybe (DEGentry M.empty) id $ M.lookup degName segMap
+nestedInsert keys@[segNm,degNm,deNm] v entries =
+  let segMap = maybe M.empty id $ M.lookup segNm entries
+      degMap = maybe (DEGentry M.empty) id $ M.lookup degNm segMap
   in case degMap of
     DEentry _        -> Left $! "nestedInsert: error while trying to insert " <> T.pack (show keys) <> ": expected DEGentry, found DEentry"
-    DEGentry degMap' -> Right $! M.insert segName (M.insert degName (DEGentry $! M.insert deName v degMap') segMap) entries
-nestedInsert [segName,deName]              v entries =
-  let segMap = maybe M.empty id $ M.lookup segName entries
-  in Right $! M.insert segName (M.insert deName (DEentry v) segMap) entries
+    DEGentry degMap' -> Right $! M.insert segNm (M.insert degNm (DEGentry $! M.insert deNm v degMap') segMap) entries
+nestedInsert [segNm,deNm]              v entries =
+  let segMap = maybe M.empty id $ M.lookup segNm entries
+  in Right $! M.insert segNm (M.insert deNm (DEentry v) segMap) entries
 nestedInsert names                         _ _       = Left $! "nestedInsert: Invalid name sequence: " <> T.pack (show names)
