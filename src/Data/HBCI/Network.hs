@@ -9,12 +9,12 @@ import qualified Data.Text as T
 
 import           Network.HTTP.Conduit
 
-import           Data.HBCI.Types
+-- import           Data.HBCI.Types
 
 -- FIXME: Error handling, timeouts, ...
-sendMsg :: BankProperties -> BS.ByteString -> HBCI BS.ByteString
-sendMsg props msg = do
-  request' <- parseUrl $ T.unpack $ bankPinTanUrl props
+sendMsg :: T.Text -> BS.ByteString -> IO BS.ByteString
+sendMsg url msg = do
+  request' <- parseUrl $! T.unpack $! url
   let request = request' { method = "POST"
                          , requestHeaders = ("Content-Type", "application/octet-stream"): requestHeaders request'
                          , requestBody = RequestBodyBS $ B64.encode msg
