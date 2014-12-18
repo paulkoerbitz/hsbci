@@ -25,8 +25,8 @@ import           Data.HBCI.Types
 import qualified Data.Map as M
 
 
-import           Data.Time.Format (FormatTime (..), formatTime)
-import           Data.Time.LocalTime (getZonedTime, ZonedTime(..))
+import           Data.Time.Format (FormatTime (..), formatTime, parseTime)
+import           Data.Time.LocalTime (getZonedTime, ZonedTime(..), LocalTime)
 import           System.Locale (defaultTimeLocale)
 
 
@@ -35,6 +35,16 @@ import           Data.HBCI.Messages
 import           Data.HBCI.Gen
 import           Data.HBCI.Parser
 import           Data.HBCI.Constants
+
+data Currency = EUR
+              deriving (Eq, Show)
+
+data Amount = Amount { amtCents :: !Int, amtCurrency :: !Currency }
+            deriving (Eq, Show)
+
+toCurrency :: T.Text -> Maybe Currency
+toCurrency "EUR" = Just EUR
+toCurrency _     = Nothing
 
 class Job x where
   type JobResult x :: *
@@ -49,10 +59,13 @@ data GetBalance =
              }
 
 data GetBalanceResult =
-  GetBalanceResult { gbrBookedBalance  :: Int
-                   , gbrCurrentBalance :: Maybe Int
-                   , gbrOverdraftLimit :: Maybe Int
-                   }
+  GetBalanceResult { gbrBookedBalance   :: Amount
+                   , gbrUnbookedBalance :: Maybe Amount
+                   , gbrOverdraftLimit  :: Maybe Amount
+                   , gbrAvailableAmount :: Maybe Amount
+                   , gbrUsedAmount      :: Maybe Amount
+                   , gbrBookingTime     :: Maybe LocalTime
+                   } deriving Show
 
 instance Job GetBalance where
   type JobResult GetBalance = GetBalanceResult
@@ -65,21 +78,30 @@ instance Job GetBalance where
                                                 ])
                          ]
 
-  getResult _job vals = do
-    bal <- fromMaybe (HbciErrorInternal "Saldo5: Didn't find expected field 'booked.BTG.value'") bookedBal
-    return $! GetBalanceResult bal currentBal overdraft
+  -- FIXME: The format that the parser spits out should probably  be adjusted so that we
+  -- can handle multiple Saldo results
+  getResult (GetBalance acntNum) vals = do
+    when (((acntNum ==) <$> (lookup "SaldoRes5.KTV.number" vals >>= deToTxt)) /= Just True) $!
+      left $! HbciErrorInternal "Bank returned balance for wrong bank account: Currently only one account can be handled!"
+    bookedBal' <- fromMaybe (HbciErrorInternal "Saldo5: Didn't find expected field 'booked.BTG.value'") bookedBal
+    return $! GetBalanceResult bookedBal' unbookedBal overdraft available used bookingTime
     where
-      -- FIXME: Could also lookup currency, account number to check
-      -- it's actually for the correct account, etc...
-      bookedBal  = btgToInt =<< lookup "SaldoRes5.booked.BTG.value" vals
-      currentBal = btgToInt =<< lookup "SaldoRes5.pending.BTG.value" vals -- FIXME: Is this correct?
-      overdraft  = btgToInt =<< lookup "SaldoRes5.kredit.value" vals
+      currency    = toCurrency =<< deToTxt  =<< lookup "SaldoRes5.curr" vals
+      toAmount mx = Amount <$> mx <*> currency
+      bookedBal   = toAmount $ btgToInt =<< lookup "SaldoRes5.booked.BTG.value" vals
+      unbookedBal = toAmount $ btgToInt =<< lookup "SaldoRes5.pending.BTG.value" vals
+      overdraft   = toAmount $ btgToInt =<< lookup "SaldoRes5.kredit.value" vals
+      available   = toAmount $ btgToInt =<< lookup "SaldoRes5.available.value" vals
+      used        = toAmount $ btgToInt =<< lookup "SaldoRes5.used.value" vals
+      bookingTime = let mDateString     = deToTxt =<< lookup "SaldoRes5.booked.date" vals
+                        mTimeString     = (deToTxt =<< lookup "SaldoRes5.booked.time" vals) <|> Just "000000"
+                        mDateTimeString = (<>) <$> mDateString <*> mTimeString
+                    in parseTime defaultTimeLocale "%0Y%m%d%H%M%S" . T.unpack =<< mDateTimeString
 
 
 sendHbciJobs :: Job x => x -> HbciIO (JobResult x)
 sendHbciJobs jobs = do
   sendSync
-  get >>= liftIO . putStrLn . show
   sendDialogInit
   res <- sendJobsInternal jobs
   sendDialogEnd
@@ -112,10 +134,13 @@ btgToInt :: DEValue -> Maybe Int
 btgToInt x = do
   txt <- deToTxt x
   case TR.decimal txt of
-    Right (euros, rest) -> case ("," `T.isPrefixOf` rest, TR.decimal $ T.drop 1 rest) of
-      (True, Right (cents, _)) -> Just $ euros * 100 + cents
-      _ -> Nothing
+    Right (euros, rest) -> (euros * 100 +) <$> toCents rest
     _ -> Nothing
+  where
+    toCents txt | txt == "" || txt == "," = Just 0
+    toCents txt                           = case TR.decimal (T.drop 1 txt) of
+      Right (cents, _) -> Just cents
+      _                -> Nothing
 
 updateBPD :: [(T.Text, DEValue)] -> Maybe BPD
 updateBPD stuff = BPD <$> (deToTxt =<< lookup "BPA.version" stuff)
@@ -285,7 +310,7 @@ processResponse msgName msg = do
   HbciState bpd upd _ _ sysId tanModes <- get
   let bpd'      = updateBPD knownRes <|> bpd
       upd'      = updateUPD knownRes <|> upd
-      sysId'    = (deToTxt =<< lookup "SyncRes.sysid" knownRes) <|> sysId
+      sysId'    = (deToTxt =<< lookup "SyncRes.sysid" knownRes) <|> sysId -- FIXME: This is a bit of a hack ...
       tanModes' = let x = findTanModes knownRes in if null x then tanModes else x
 
   dialogId' <- fromMaybe (HbciErrorInternal "SynchResponse: new dialogid could not be found") $ deToTxt =<< lookup "MsgHead.dialogid" knownRes
@@ -418,5 +443,5 @@ main = do
   hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetBalance accnum)
 
   case hbciRes of
-    Left e                           -> putStrLn ("ERROR: " ++ show e) >> exitFailure
-    Right (GetBalanceResult bal _ _) -> putStrLn $ "Found balance: " ++ show bal
+    Left e    -> putStrLn ("ERROR: " ++ show e) >> exitFailure
+    Right bal -> putStrLn $ "Found balance: " ++ show bal
