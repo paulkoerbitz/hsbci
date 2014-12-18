@@ -17,7 +17,9 @@ library
                        Data.HBCI.HbciDef,
                        Data.HBCI.Messages,
                        Data.HBCI.Network,
-                       Data.HBCI.Constants
+                       Data.HBCI.Constants,
+                       Data.HBCI.Jobs,
+                       Data.HBCI.Utils
   hs-source-dirs:      src
   ghc-options:         -Wall -fno-warn-name-shadowing -fwarn-incomplete-patterns -fwarn-incomplete-uni-patterns -O -funbox-strict-fields
   build-depends:       base >=4.6

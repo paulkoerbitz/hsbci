@@ -218,4 +218,17 @@ runHbciIO info state action = runStateT (runReaderT (runEitherT action) info) st
 evalHbciIO :: HbciInfo -> HbciState -> HbciIO a -> IO (Either HbciError a)
 evalHbciIO info state action = evalStateT (runReaderT (runEitherT action) info) state
 
+
+data Currency = EUR
+              deriving (Eq, Show)
+
+data Amount = Amount { amtCents :: !Int, amtCurrency :: !Currency }
+            deriving (Eq, Show)
+
+toCurrency :: T.Text -> Maybe Currency
+toCurrency "EUR" = Just EUR
+toCurrency _     = Nothing
+
+
+
 -- type HBCI a = ReaderT HbciInfo (StateT HbciState (EitherT HbciError IO)) a
