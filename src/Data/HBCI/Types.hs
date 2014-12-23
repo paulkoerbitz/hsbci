@@ -8,11 +8,9 @@ import qualified Data.Map as M
 import           Text.PrettyPrint
 
 import           Control.Monad (liftM)
-import           Control.Applicative (Applicative, (<$>))
 import           Control.Monad.Reader (ReaderT, MonadReader, ask, runReaderT)
-import           Control.Monad.State (State, StateT, MonadState, get, put, runStateT, evalStateT, execStateT)
-import           Control.Monad.Trans.Either (EitherT, hoistEither, left, right, runEitherT)
-import           Control.Monad.Trans (MonadIO, lift, liftIO)
+import           Control.Monad.State (State, StateT, MonadState, get, put, runStateT, evalStateT)
+import           Control.Monad.Trans.Either (EitherT, hoistEither, runEitherT)
 import           Control.Monad.Identity (Identity, runIdentity)
 
 -- FIXME: Make things strict where appropriate
@@ -167,18 +165,6 @@ data HbciError =
 data HbciInfoInternal = HbciInfoInternal { infoInternalInfo :: HbciInfo, infoInternalState :: HbciState }
 
 type Hbci' r m a = EitherT HbciError (ReaderT r m) a
-
--- newtype HbciReader a =
---   HbciReader { runHbciReader :: Hbci' HbciConfInternal Identity a
---              } deriving (Functor, Applicative, Monad, MonadReader HbciConfInternal)
---
--- newtype Hbci a =
---   Hbci { runHbci' :: Hbci' HbciConfig (State HbciState) a
---        } deriving (Functor, Applicative, Monad, MonadReader HbciConfig, MonadState HbciState)
---
--- newtype HbciIO a =
---   HbciIO { runHbciIO' :: Hbci' HbciConfig (StateT HbciState IO) a
---          } deriving (Functor, Applicative, Monad, MonadReader HbciConfig, MonadState HbciState, MonadIO)
 
 type HbciReader a = Hbci' HbciInfoInternal Identity a
 
