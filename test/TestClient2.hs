@@ -21,6 +21,7 @@ import           System.Exit (exitFailure)
 
 import qualified Data.Map as M
 
+import           Data.Time.Calendar (fromGregorian)
 import           Data.Time.Format (FormatTime (..), formatTime)
 import           Data.Time.LocalTime (getZonedTime, ZonedTime(..))
 import           System.Locale (defaultTimeLocale)
@@ -345,7 +346,7 @@ main = do
 
   let hbciInfo  = HbciInfo props msgDefs uid pin blz
 
-  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetBalance accnum)
+  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetStatementList "17863762" "" (fromGregorian 2014 12 1) (fromGregorian 2014 12 24) 0)
 
   case hbciRes of
     Left e    -> putStrLn ("ERROR: " ++ show e) >> exitFailure
