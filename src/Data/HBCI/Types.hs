@@ -13,6 +13,8 @@ import           Control.Monad.State (State, StateT, MonadState, get, put, runSt
 import           Control.Monad.Trans.Either (EitherT, hoistEither, runEitherT)
 import           Control.Monad.Identity (Identity, runIdentity)
 
+import           Data.Time.Calendar (Day)
+
 -- FIXME: Make things strict where appropriate
 
 data DEValue = DEStr !T.Text
@@ -216,5 +218,10 @@ toCurrency "EUR" = Just EUR
 toCurrency _     = Nothing
 
 
-
--- type HBCI a = ReaderT HbciInfo (StateT HbciState (EitherT HbciError IO)) a
+data StatementEntry =
+  StatementEntry { seValutaDate     :: Day
+                 , seBookingDate    :: Day
+                 , seRecipient      :: T.Text
+                 , sePaymentPurpose :: [T.Text]
+                 , seAmount         :: Amount
+                 } deriving Show

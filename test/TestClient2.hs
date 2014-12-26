@@ -267,6 +267,10 @@ sendSync  = do
   ZonedTime time _ <- liftIO $ getZonedTime
   response <- sendMsg =<< (liftReader $! createMsg time "Synch" msgVals)
   _ <- liftHbci $! processResponse "Synch" response
+
+  bpd' <- hbciStateBPD <$> get
+  liftIO $! putStrLn $! show bpd'
+
   return ()
 
 
