@@ -30,6 +30,7 @@ library
                      , http-conduit >= 2.0
                      , mtl >= 2.0
                      , pretty >= 1.0
+                     , regex-posix >= 0.95
                      , text >= 0.11
                      , time >= 1.4.1 && <= 1.4.2
                      , old-locale >= 1.0
@@ -97,6 +98,7 @@ executable test-client2
                      , old-locale >= 1.0
                      , pretty >= 1.0
                      , text >= 0.11
+                     , regex-posix >= 0.95
                      , time >= 1.4.1 && <= 1.4.2
                      , vector >= 0.10
                      , xml >= 1.3

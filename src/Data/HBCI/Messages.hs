@@ -1,20 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Data.HBCI.Messages where
 
-import           Control.Applicative ((<$>))
+import           Control.Applicative ((<$>), (<|>))
 import           Control.Arrow       (second)
 import           Control.Monad       (foldM)
-import           Control.Monad.State (StateT, evalStateT, mapStateT, get, modify)
+import           Control.Monad.State (StateT, evalStateT, mapStateT, get, modify, put)
 import           Control.Monad.Trans (lift)
 import qualified Data.ByteString     as BS
 import           Data.Either         (lefts, partitionEithers, rights)
 import qualified Data.Map            as M
-import           Data.Maybe          (fromJust, isJust, isNothing)
+import qualified Data.IntMap         as IM
+import           Data.Maybe          (fromJust, isJust, isNothing, listToMaybe, catMaybes)
 import           Data.Monoid         ((<>))
 import qualified Data.Text           as T
 import           Data.Traversable    (traverse)
 
 import           Data.HBCI.Types
+import           Data.HBCI.Utils (deToInt)
 
 
 isBinaryType :: DEType -> Bool
@@ -110,23 +112,27 @@ fillSegItem entries (DEGItem (DEG degnm minnum _ degitems)) =
 filterEnd :: (a -> Bool) -> [a] -> [a]
 filterEnd p = foldr (\x acc -> if p x || not (null acc) then x:acc else []) []
 
-fillSeg :: MSGEntry -> SEG -> FillRes SEGValue
+-- FIXME: Somewhat inellegant with the empty list and the Maybe ...
+fillSeg :: MSGEntry -> SEG -> FillRes (Maybe (SEGValue, (T.Text, Int)))
 fillSeg entries (SEG segNm _tag minnum _ items) = augmentFillErrorPath segNm $ do
   let segEntries = M.lookup segNm entries
   if (isNothing segEntries && minnum == 0)
-    then return []
+    then return Nothing
     else do result <- filterEnd (not . null) <$> traverse (fillSegItem (maybe M.empty id segEntries)) items
             -- msgSize: length res - 1 (for the + in between items) + 1 (for the ' after the seg)
-            modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length result})
-            return result
+            MkFillState sz segNum <- get
+            put (MkFillState (sz + length result) (segNum+1))
+            -- modify (\x -> x { msgSeq = msgSeq x + 1 , msgSize = msgSize x + length result})
+            return $! Just (result, (segNm, segNum))
 
-fillMsg :: MSGEntry -> MSG -> FillRes MSGValue
-fillMsg entries (MSG _reqSig _reqEnc items) = filter (not . null) <$> traverse (fillSeg entries') items
+fillMsg :: MSGEntry -> MSG -> FillRes (MSGValue, [(T.Text, Int)])
+fillMsg entries (MSG _reqSig _reqEnc items) =
+  unzip . catMaybes <$> traverse (fillSeg entries') items
   where
     entries' = M.insertWith M.union "MsgHead" (M.fromList [("msgsize", DEentry $ DEStr "000000000000")]) entries
 
-finalizeMsg :: FillRes MSGValue -> Either T.Text MSGValue
-finalizeMsg msg = case evalStateT (msg >>= replaceMsgSize) (MkFillState 0 1) of
+finalizeMsg :: FillRes (MSGValue, a) -> Either T.Text (MSGValue, a)
+finalizeMsg msg = case evalStateT (msg >>= \(x,y) -> replaceMsgSize x >>= \x' -> return (x',y)) (MkFillState 0 1) of
     Right x -> return x
     Left (FillError errPath errMsg) -> Left $ T.intercalate "." errPath <> ": " <> errMsg
   where
@@ -170,19 +176,23 @@ validateAndExtractSegItem prefix (DEGItem (DEG degNm _minNum _maxNum des)) deval
   in concat <$> mapM (uncurry $ validateAndExtractSegItem prefix') items
 validateAndExtractSegItem prefix _ _ = Left $ "Unexpected deval when trying to process segment '" <> prefix <> "'"
 
-extractSeg :: ([SEG], M.Map T.Text SEG) -> SEGValue -> Either T.Text [(T.Text, DEValue)]
+extractSeg :: ([SEG], M.Map T.Text SEG) -> SEGValue -> Either T.Text (T.Text, Maybe Int, [(T.Text, DEValue)])
 extractSeg (tmplDefs, defs) segVal = do
   valHd <- getValHead segVal
   case M.lookup (fst valHd <> "-" <> snd valHd) defs of
-    Just segDef -> f segDef
-    Nothing -> foldr (\x acc -> acc `alt` x) (Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd) (f <$> tmplDefs)
+    Just segDef -> do { res <- f segDef; return (segName segDef, findRef res, res) } -- FIXME
+    Nothing -> foldr (\x acc -> f x >>= \res -> Right (segName x, findRef res, res) `alt` acc) -- FIXME
+               (Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd)
+               $! tmplDefs
   where
     f segDef = let items = segItems segDef
-                   prefix = segName segDef
-               in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem prefix si sv) [] $ zip items segVal
+                   -- prefix = segName segDef
+               in foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem "" si sv) [] $ zip items segVal
 
     alt (Left _) y    = y
     alt x@(Right _) _ = x
+
+    findRef vals = lookup "SegHead.segref" vals >>= deToInt
 
 findSegDefs :: MSG -> ([SEG], M.Map T.Text SEG)
 findSegDefs (MSG _ _ segs) = (lefts $! segDefs, M.fromList $! rights $! segDefs)
@@ -193,9 +203,41 @@ findSegDefs (MSG _ _ segs) = (lefts $! segDefs, M.fromList $! rights $! segDefs)
       Right (hd, version) -> Right (hd <> "-" <> version, seg)
       Left _              -> Left seg
 
-extractMsg :: MSG -> MSGValue -> ([T.Text], [(T.Text, DEValue)])
+findMsgItem :: (T.Text, T.Text) -> MsgData -> Maybe DEValue
+findMsgItem (k1,k2) (MsgData m _) = do
+  inner <- M.lookup k1 m
+  foldr (\x acc -> lookup k2 x <|> acc) Nothing inner
+
+findMsgItems :: (T.Text, T.Text) -> MsgData -> [DEValue]
+findMsgItems (k1,k2) (MsgData m _) = maybe [] f $! M.lookup k1 m
+  where
+    f = foldr (\x acc -> maybe acc (:acc) $! lookup k2 x) []
+
+findMsgEntry :: T.Text -> MsgData -> Maybe [(T.Text, DEValue)]
+findMsgEntry k (MsgData m _) = do
+  inner <- M.lookup k m
+  listToMaybe inner
+
+findMsgSegByRef :: Int -> MsgData -> [(T.Text, [(T.Text, DEValue)])]
+findMsgSegByRef k (MsgData _ m) = case IM.lookup k m of
+  Just x  -> x
+  Nothing -> []
+
+
+extractMsg :: MSG -> MSGValue -> ([T.Text], MsgData)
 extractMsg msgDef msgVal =
-  second concat $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal
+  second (foldr f (MsgData M.empty IM.empty)) $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal
+  where
+    f (segNm, Nothing,     vals) (MsgData bySegName bySegRef) =
+      MsgData (insOrAppend M.lookup M.insert segNm vals bySegName) bySegRef
+    f (segNm, Just segRef, vals) (MsgData bySegName bySegRef) =
+      MsgData (insOrAppend M.lookup M.insert segNm vals bySegName) (insOrAppend IM.lookup IM.insert segRef (segNm, vals) bySegRef)
+
+    insOrAppend find ins k v m = case find k m of
+      Just vs -> ins k (v:vs) m
+      Nothing -> ins k [v] m
+
+
 
 nestedInsert :: [T.Text] -> DEValue -> MSGEntry -> Either T.Text MSGEntry
 nestedInsert keys@[segNm,degNm,deNm] v entries =

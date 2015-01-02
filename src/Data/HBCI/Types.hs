@@ -5,6 +5,7 @@ module Data.HBCI.Types where
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import           Text.PrettyPrint
 
 import           Control.Monad (liftM)
@@ -118,10 +119,17 @@ instance HbciPretty MSG where
 
 -- Idea: The HbciState should be run per user and per Bank. That way
 -- we can keep things somewhat localized.
+data HbciJobParams = HbciJobParams { hbciJobParamsVersion :: !Int
+                                   , hbciJobParamsMinSigs :: !Int
+                                   , hbciJobParamsMaxNum  :: !Int
+                                   , hbciJobParamsOther   :: ![(T.Text, DEValue)]
+                                   } deriving (Eq, Show)
+
 data BPD = BPD { bpdVersion    :: !T.Text
                , bpdMaxNumJobs :: !Int
-               , bpdMsgSize    :: !Int
-               , bpdOther      :: !(M.Map T.Text DEValue)
+               , bpdMaxMsgSize :: !Int
+               , bpdJobParams  :: !(M.Map T.Text [HbciJobParams])
+               -- , bpdOther      :: !(M.Map T.Text DEValue)
                } deriving (Eq, Show)
 
 data UPD = UPD { updVersion :: !T.Text
@@ -225,3 +233,7 @@ data StatementEntry =
                  , sePaymentPurpose :: [T.Text]
                  , seAmount         :: Amount
                  } deriving Show
+
+data MsgData = MsgData { msgDataBySegName :: M.Map T.Text [[(T.Text, DEValue)]]
+                       , msgDataBySegRef  :: IM.IntMap [(T.Text, [(T.Text, DEValue)])]
+                       }

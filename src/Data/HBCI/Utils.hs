@@ -12,11 +12,15 @@ fromMaybe :: Monad m => HbciError -> Maybe a -> EitherT HbciError m a
 fromMaybe e m = maybe (left e) right m
 
 fromEither :: Monad m => Either T.Text a -> EitherT HbciError m a
-fromEither = hoistEither . first HbciErrorOther
+fromEither = hoistEither . onLeft HbciErrorOther
 
-first :: (a -> b) -> Either a c -> Either b c
-first l (Left  x)  = Left (l x)
-first _ (Right x)  = Right x
+onLeft :: (a -> b) -> Either a c -> Either b c
+onLeft l (Left  x)  = Left (l x)
+onLeft _ (Right x)  = Right x
+
+onRight :: (a -> b) -> Either c a -> Either c b
+onRight _ (Left  x)  = Left x
+onRight r (Right x)  = Right (r x)
 
 deToTxt :: DEValue -> Maybe T.Text
 deToTxt (DEStr x) = Just x

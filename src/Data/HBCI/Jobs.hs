@@ -4,6 +4,7 @@ module Data.HBCI.Jobs where
 
 import           Control.Applicative ((<$>), (<*>), (<|>))
 import           Control.Monad (when, liftM)
+import           Control.Monad.State (get)
 import           Control.Monad.Trans.Either (left)
 import           Data.Monoid ((<>))
 import           Data.Char (ord)
@@ -32,14 +33,29 @@ import           Data.HBCI.Mt94x
 class Job x where
   type JobResult x :: *
 
+  xmlSegmentName :: x -> T.Text
+
   getParams :: x -> HbciReader MSGEntry
 
-  getResult :: x -> [(T.Text, DEValue)] -> Hbci (JobResult x)
+  getResult :: x -> [(T.Text, Int)] -> MsgData -> Hbci (JobResult x)
 
 
 ------------------------------------------------------------------------
 -- Get Balance
 ------------------------------------------------------------------------
+safeMaximum :: Ord a => [a] -> Maybe a
+safeMaximum []     = Nothing
+safeMaximum (x:xs) = (safeMaximum xs >>= return . max x) <|> Just x
+
+getVersionedJobName :: T.Text -> HbciReader T.Text
+getVersionedJobName name = do
+  bpd <- hbciStateBPD <$> askState
+  fromMaybe (HbciErrorInternal $! "Job " <> name <> ": Could not find version number in BPD") $!
+    bpd >>= return . bpdJobParams >>= M.lookup name >>= safeMaximum . map hbciJobParamsVersion >>= return . T.pack . show
+
+findResultSegs :: Job x => x -> [(T.Text, Int)] -> MsgData -> HbciReader [(T.Text, [(T.Text, DEValue)])]
+findResultSegs = undefined
+
 data GetBalance =
   GetBalance { gbAccountNumber :: T.Text
              }
@@ -56,31 +72,39 @@ data GetBalanceResult =
 instance Job GetBalance where
   type JobResult GetBalance = GetBalanceResult
 
+  xmlSegmentName _ = "Saldo"
+
   getParams (GetBalance accNum) = do
-    -- FIXME: Probably need to get the version of the supported saldo method from the BPD
+    jobName <- getVersionedJobName "Saldo"
     blz <- hbciInfoBlz <$> askInfo
-    return $! M.fromList [("Saldo5", M.fromList [("KTV", ktv2 accNum "" blz) ,("allaccounts", DEentry (DEStr "N"))])]
+    return $! M.fromList [(jobName, M.fromList [("KTV", ktv2 accNum "" blz) ,("allaccounts", DEentry (DEStr "N"))])]
 
-  -- FIXME: The format that the parser spits out should probably  be adjusted so that we
-  -- can handle multiple Saldo results
-  getResult (GetBalance acntNum) vals = do
-    when (((acntNum ==) <$> (lookup "SaldoRes5.KTV.number" vals >>= deToTxt)) /= Just True) $!
-      left $! HbciErrorInternal "Bank returned balance for wrong bank account: Currently only one account can be handled!"
-    bookedBal' <- fromMaybe (HbciErrorInternal "Saldo5: Didn't find expected field 'booked.BTG.value'") bookedBal
-    return $! GetBalanceResult bookedBal' unbookedBal overdraft available used bookingTime
+  getResult job@(GetBalance acntNum) requestSegNums vals' = do
+    resultSegs <- liftReader $! findResultSegs job requestSegNums vals'
+    resultXmlName <- liftReader $! getVersionedJobName (xmlSegmentName job <> "Res")
+    processSegs resultXmlName resultSegs
     where
-      currency    = toCurrency =<< deToTxt  =<< lookup "SaldoRes5.curr" vals
-      toAmount mx = Amount <$> mx <*> currency
-      bookedBal   = toAmount $ btgToInt =<< lookup "SaldoRes5.booked.BTG.value" vals
-      unbookedBal = toAmount $ btgToInt =<< lookup "SaldoRes5.pending.BTG.value" vals
-      overdraft   = toAmount $ btgToInt =<< lookup "SaldoRes5.kredit.value" vals
-      available   = toAmount $ btgToInt =<< lookup "SaldoRes5.available.value" vals
-      used        = toAmount $ btgToInt =<< lookup "SaldoRes5.used.value" vals
-      bookingTime = let mDateString     = deToTxt =<< lookup "SaldoRes5.booked.date" vals
-                        mTimeString     = (deToTxt =<< lookup "SaldoRes5.booked.time" vals) <|> Just "000000"
-                        mDateTimeString = (<>) <$> mDateString <*> mTimeString
-                    in parseTime defaultTimeLocale "%0Y%m%d%H%M%S" . T.unpack =<< mDateTimeString
+      processSegs expectedNm [(nm, vals)] | nm == expectedNm = do
+        when (((acntNum ==) <$> (lookup "KTV.number" vals >>= deToTxt)) /= Just True) $!
+          left $! HbciErrorInternal "Bank returned balance for wrong bank account: Currently only one account can be handled!"
+        let currency    = toCurrency =<< deToTxt  =<< lookup "curr" vals
+            toAmount mx = Amount <$> mx <*> currency
+            bookedBal   = toAmount $ btgToInt =<< lookup "booked.BTG.value" vals
+            unbookedBal = toAmount $ btgToInt =<< lookup "pending.BTG.value" vals
+            overdraft   = toAmount $ btgToInt =<< lookup "kredit.value" vals
+            available   = toAmount $ btgToInt =<< lookup "available.value" vals
+            used        = toAmount $ btgToInt =<< lookup "used.value" vals
+            bookingTime = let mDateString     = deToTxt =<< lookup "booked.date" vals
+                              mTimeString     = (deToTxt =<< lookup "booked.time" vals) <|> Just "000000"
+                              mDateTimeString = (<>) <$> mDateString <*> mTimeString
+                          in parseTime defaultTimeLocale "%0Y%m%d%H%M%S" . T.unpack =<< mDateTimeString
+        bookedBal' <- fromMaybe (HbciErrorInternal "Saldo: Didn't find expected field 'booked.BTG.value'") bookedBal
+        return $! GetBalanceResult bookedBal' unbookedBal overdraft available used bookingTime
 
+      processSegs _ _  = left $! HbciErrorInternal $! "Job " <> xmlSegmentName job <> ": Found unknown result segments while processing response"
+
+
+{-
 ------------------------------------------------------------------------
 -- Get Statement List
 ------------------------------------------------------------------------
@@ -116,15 +140,15 @@ instance Job GetStatementList where
   -- FIXME: The format that the parser spits out should probably  be adjusted so that we
   -- can handle multiple Saldo results -- I need to check which segment this one is referring to (on
   -- a higher level
-  getResult _ vals = do
+  getResult _ _ _vals = do
     -- when (((acntNum ==) <$> (lookup "KUmsRes5.KTV.number" vals >>= deToTxt)) /= Just True) $!
     --   left $! HbciErrorInternal "Bank returned balance for wrong bank account: Currently only one account can be handled!"
     booked' <- return $! maybe [] id booked
     unbooked' <- return $! maybe [] id unbooked
     return $! GetStatementListResult booked' unbooked'
     where
-      booked = parseMt94x =<< deToBS =<< lookup "KUmsZeitRes5.booked" vals
-      unbooked = parseMt94x =<< deToBS =<< lookup "KUmsZeitRes5.unbooked" vals
+      booked = undefined -- parseMt94x =<< deToBS =<< lookup "KUmsZeitRes5.booked" vals
+      unbooked = undefined -- parseMt94x =<< deToBS =<< lookup "KUmsZeitRes5.unbooked" vals
 
 
 ------------------------------------------------------------------------
@@ -154,13 +178,15 @@ instance Job StartTransaction where
   getParams _st = undefined
 
   getResult _st _vals = undefined
-
+-}
 
 ktv2 :: T.Text -> T.Text -> T.Text -> DEGEntry
 ktv2 actNum subNum blz = DEGentry $! M.fromList $!
                          [("number", DEStr actNum), ("KIK.country", DEStr "280"), ("KIK.blz", DEStr blz)] ++
                          if T.null subNum then [] else [("subnumber", DEStr subNum)]
 
+formatTime' :: String -> Day -> String
 formatTime' = formatTime defaultTimeLocale
 
+fst3 :: (t, t1, t2) -> t
 fst3 (x,_,_) = x

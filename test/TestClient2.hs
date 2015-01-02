@@ -12,10 +12,13 @@ import           Control.Monad.State        (get, put, modify)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString       as BS
 
-import           Data.Monoid ((<>))
-import           Data.Maybe (catMaybes)
+import           Data.Monoid ((<>), mempty)
+import           Data.Maybe (catMaybes, listToMaybe)
+import           Data.Traversable (traverse)
 
 import qualified Data.Text as T
+
+import           Text.Regex.Posix ((=~))
 
 import           System.Exit (exitFailure)
 
@@ -38,6 +41,7 @@ import           Data.HBCI.Jobs
 import           Data.HBCI.Utils
 
 
+
 sendHbciJobs :: Job x => x -> HbciIO (JobResult x)
 sendHbciJobs jobs = do
   sendSync
@@ -47,16 +51,36 @@ sendHbciJobs jobs = do
   return res
 
 
+updateBPD :: MsgData -> Maybe BPD
+updateBPD stuff = do
+  bpa <- findMsgEntry "BPA" stuff
+  version <- deToTxt =<< lookup "version" bpa
+  numgva <- deToInt =<< lookup "numgva" bpa
+  maxsize <- deToInt =<< lookup "maxmsgsize" bpa
+  params <- M.foldrWithKey f Nothing (msgDataBySegName stuff)   -- foldr (\x acc -> return $! M.foldMapWithKey f (msgDataBySegName stuff)
+  return $! BPD version numgva maxsize params
+  where
+    pattern = "[a-zA-Z0-9]*Par[0-9]" :: String
 
-updateBPD :: [(T.Text, DEValue)] -> Maybe BPD
-updateBPD stuff = BPD <$> (deToTxt =<< lookup "BPA.version" stuff)
-                      <*> (deToInt =<< lookup "BPA.numgva" stuff)
-                      <*> (deToInt =<< lookup "BPA.maxmsgsize" stuff)
-                      <*> Just (M.fromList stuff)
+    f :: T.Text -> [[(T.Text, DEValue)]] -> Maybe (M.Map T.Text [HbciJobParams]) -> Maybe (M.Map T.Text [HbciJobParams])
+    f key vals acc | T.unpack key =~ pattern = do
+      vals' <- traverse mkParams vals
+      acc' <- acc <|> Just M.empty
+      return $! M.insert key vals' acc'
+    f _   _    acc                  = acc
+
+    mkParams vals = do
+      version <- deToInt =<< lookup "" vals
+      minSigs <- deToInt =<< lookup "" vals
+      maxNum  <- deToInt =<< lookup "" vals
+      other   <- return $! filter (\x -> not $! any ((== x) . fst) []) vals
+      return $! HbciJobParams version minSigs maxNum other
+
+
 
 -- FIXME: Key is not right
-updateUPD :: [(T.Text, DEValue)] -> Maybe UPD
-updateUPD stuff = UPD <$> (deToTxt =<< lookup "UPA.version" stuff)
+updateUPD :: MsgData -> Maybe UPD
+updateUPD stuff = UPD <$> (deToTxt =<< findMsgItem ("UPA", "version") stuff)
 
 sign :: FormatTime t => t -> MSGEntry -> HbciReader MSGEntry
 sign localTime msg = do -- sysid tanModes (MkHbciUserInfo userID pin blz) msg =
@@ -102,7 +126,7 @@ askMsgDef msgName = do
   HbciInfo _ hbciDef _ _ _ <- askInfo
   fromMaybe (HbciErrorInternal $ "Can't find definition of " <> msgName) $ M.lookup msgName hbciDef
 
-crypt :: FormatTime t => t -> MSG -> MSGEntry -> HbciReader MSGValue
+crypt :: FormatTime t => t -> MSG -> MSGEntry -> HbciReader (MSGValue, [(T.Text, Int)])
 crypt localTime (MSG reqSig reqEnc items) entries = do
   cryptMsgDef <- askMsgDef "Crypted"
   HbciState _ _ dialogId msgNum sysId _ <- askState
@@ -115,7 +139,7 @@ crypt localTime (MSG reqSig reqEnc items) entries = do
              else lift $ Left $ FillError [] "crypt: Need MsgHead and MsgTail in items"
 
     put (MkFillState 0 2)
-    msgtext <- gen <$> fillMsg entries (MSG reqSig reqEnc items')
+    (msgtext, msgSegNums) <- (\(x,y) -> (gen x, y)) <$> fillMsg entries (MSG reqSig reqEnc items')
 
     cryptItems <- case (foldM (\acc (k,v) -> nestedInsert k v acc) M.empty
                         [(["CryptHead", "secfunc"] , DEStr "998") -- FIXME
@@ -155,39 +179,42 @@ crypt localTime (MSG reqSig reqEnc items) entries = do
                     Right stuff -> lift $ Right stuff
 
     modify (\x -> x { msgSize = 0} )
-
-    filledCryptTail <- fillMsg cryptItems $ cryptMsgDef { msgItems = [last $ msgItems cryptMsgDef] }
+    (filledCryptTail, tailSegNums) <- fillMsg cryptItems $ cryptMsgDef { msgItems = [last $ msgItems cryptMsgDef] }
 
     modify (\x -> x { msgSeq = 1 })
-    filledCryptHead <- fillMsg cryptItems $ cryptMsgDef { msgItems = init $ msgItems cryptMsgDef }
+    (filledCryptHead, headSegNums) <- fillMsg cryptItems $ cryptMsgDef { msgItems = init $ msgItems cryptMsgDef }
 
-    return (filledCryptHead ++ filledCryptTail)
+    return (filledCryptHead ++ filledCryptTail, headSegNums ++ msgSegNums ++ tailSegNums)
 
 decrypt :: MSGValue -> HbciReader MSGValue
 decrypt msgVal = do
   cryptedResDef <- askMsgDef "CryptedRes"
   (_, known) <- return $! extractMsg cryptedResDef msgVal
-  case lookup "CryptData.data" known of
+  case findMsgItem ("CryptData", "data") known of
     (Just (DEBinary bs)) -> fromEither $! parser bs >>= \x -> return (take 1 msgVal ++ x ++ drop (length msgVal -1) msgVal)
     _                    -> left $! HbciErrorInputData "Coundn't decrypt message"
 
 -- FIXME: Need to uniquify the tan modes
-findTanModes :: [(T.Text, DEValue)] -> [TanMode]
-findTanModes response = catMaybes $ map mkTanMode modes
+findTanModes :: BPD -> [TanMode]
+findTanModes (BPD _ _ _ params) = foldr f [] [0..9]
   where
-    f i               = let nm = "TAN2StepPar" <> T.pack (show i) in (nm, filter (\x -> nm `T.isPrefixOf` (fst x)) response)
-    modes             = filter (not . null . snd) $ map f  [1..(5::Int)]
-    mkTanMode (nm,xs) = MkTanMode <$> (deToTxt =<< lookup (nm <> ".ParTAN2Step.secfunc") xs)
-                                  <*> (deToTxt =<< lookup (nm <> ".ParTAN2Step.name") xs)
-                                  <*> (deToTxt =<< lookup (nm <> ".ParTAN2Step.id") xs)
+    f :: Int -> [TanMode] -> [TanMode]
+    f i acc = maybe acc (++ acc) $! do
+      tanParams <- M.lookup ("TAN2StepPar" <> T.pack (show i)) params
+      mapM (mkTanMode . hbciJobParamsOther) tanParams
 
-createMsg :: FormatTime t => t -> T.Text -> MSGEntry -> HbciReader BS.ByteString
+    mkTanMode l = MkTanMode <$> (deToTxt =<< lookup "ParTAN2Step.secfunc" l)
+                            <*> (deToTxt =<< lookup "ParTAN2Step.name" l)
+                            <*> (deToTxt =<< lookup "ParTAN2Step.id" l)
+
+createMsg :: FormatTime t => t -> T.Text -> MSGEntry -> HbciReader (BS.ByteString, [(T.Text, Int)])
 createMsg time msgName msgVals = do
   msgDef <- askMsgDef msgName
   msgVals' <- if (msgRequiresSignature msgDef) then sign time msgVals else return msgVals
-  if (msgRequiresEncryption msgDef)
-    then gen <$> crypt time msgDef msgVals'
-    else fromEither $! gen <$> (finalizeMsg $! fillMsg msgVals' msgDef)
+  (msgVals'', segNums) <- if (msgRequiresEncryption msgDef)
+               then crypt time msgDef msgVals'
+               else fromEither $! finalizeMsg $! fillMsg msgVals' msgDef
+  return $! (gen msgVals'', segNums)
 
 sendMsg :: BS.ByteString -> HbciIO BS.ByteString
 sendMsg msg = do
@@ -199,10 +226,10 @@ sendMsg msg = do
   return response
 
 safeHead :: [a] -> Maybe a
-safeHead [] = Nothing
+safeHead []    = Nothing
 safeHead (x:_) = Just x
 
-processResponse :: T.Text -> BS.ByteString -> Hbci [(T.Text, DEValue)]
+processResponse :: T.Text -> BS.ByteString -> Hbci MsgData
 processResponse msgName msg = do
   responseDef <- liftReader $! askMsgDef (msgName <> "Res")
 
@@ -216,10 +243,13 @@ processResponse msgName msg = do
   HbciState bpd upd _ _ sysId tanModes <- get
   let bpd'      = updateBPD knownRes <|> bpd
       upd'      = updateUPD knownRes <|> upd
-      sysId'    = (deToTxt =<< lookup "SyncRes.sysid" knownRes) <|> sysId -- FIXME: This is a bit of a hack ...
-      tanModes' = let x = findTanModes knownRes in if null x then tanModes else x
+      sysId'    = (findMsgItem ("SyncRes", "sysid") knownRes >>= deToTxt) <|> sysId -- FIXME: This is a bit of a hack ...
+      tanModes' = case bpd of
+        Just bpd'' -> let x = findTanModes bpd'' in if null x then tanModes else x
+        _ -> tanModes
 
-  dialogId' <- fromMaybe (HbciErrorInternal "SynchResponse: new dialogid could not be found") $ deToTxt =<< lookup "MsgHead.dialogid" knownRes
+  dialogId' <- fromMaybe (HbciErrorInternal "SynchResponse: new dialogid could not be found") $!
+    deToTxt =<< findMsgItem ("MsgHead", "dialogid") knownRes
 
   -- FIXME: I probably only want to do this for some messages...
   modify (\st -> st { hbciStateBPD = bpd'
@@ -265,7 +295,7 @@ sendSync  = do
                 ]
 
   ZonedTime time _ <- liftIO $ getZonedTime
-  response <- sendMsg =<< (liftReader $! createMsg time "Synch" msgVals)
+  response <- sendMsg =<< (liftReader $! fst <$> createMsg time "Synch" msgVals)
   _ <- liftHbci $! processResponse "Synch" response
 
   bpd' <- hbciStateBPD <$> get
@@ -293,7 +323,7 @@ sendDialogInit = do
                 ]
 
   ZonedTime time _ <- liftIO $ getZonedTime
-  response <- sendMsg =<< (liftReader $! createMsg time "DialogInit" msgVals)
+  response <- sendMsg =<< (liftReader $! fst <$> createMsg time "DialogInit" msgVals)
   _ <- liftHbci $! processResponse "DialogInit" response
   return ()
 
@@ -307,7 +337,7 @@ sendDialogEnd = do
                            ]
 
   ZonedTime time _ <- liftIO $ getZonedTime
-  response <- sendMsg =<< (liftReader $! createMsg time "DialogEnd" msgVals)
+  response <- sendMsg =<< (liftReader $! fst <$> createMsg time "DialogEnd" msgVals)
   _ <- liftHbci $! processResponse "DialogEnd" response
   return ()
 
@@ -322,9 +352,10 @@ sendJobsInternal jobs = do
                                            ,("MsgTail", M.fromList [("dialogid", DEentry $ DEStr dialogId)
                                                                    ,("msgnum", DEentry $ DEStr $ T.pack $ show msgnum)])])
   ZonedTime time _ <- liftIO $ getZonedTime
-  response <- sendMsg =<< (liftReader $! createMsg time "CustomMsg" msgVals)
+  (msg, segNums) <- liftReader $! createMsg time "CustomMsg" msgVals
+  response <- sendMsg msg
   response' <- liftHbci $! processResponse "CustomMsg" response
-  liftHbci $! getResult jobs response'
+  liftHbci $! getResult jobs segNums response'
 
 
 getHbciConfig :: IO (Either String (M.Map T.Text BankProperties, M.Map T.Text MSG))
@@ -350,7 +381,8 @@ main = do
 
   let hbciInfo  = HbciInfo props msgDefs uid pin blz
 
-  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetStatementList "17863762" "" (fromGregorian 2014 12 1) (fromGregorian 2014 12 24) 0)
+  -- hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetStatementList "17863762" "" (fromGregorian 2014 12 1) (fromGregorian 2014 12 24) 0)
+  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetBalance "17863762")
 
   case hbciRes of
     Left e    -> putStrLn ("ERROR: " ++ show e) >> exitFailure
