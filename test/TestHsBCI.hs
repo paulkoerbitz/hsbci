@@ -7,6 +7,7 @@ import           Control.Monad.State (evalStateT, runStateT)
 import           Data.Monoid ((<>))
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import           Text.XML.Light (parseXML, onlyElems, Content(..))
@@ -466,7 +467,7 @@ fillMsgTests =
   [ testGroup "Simple message examples"
     [ testCase "One item message -- success" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (finalizeMsg $ fillMsg
+               (fmap fst $ finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "HNHBK")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
@@ -482,13 +483,13 @@ fillMsgTests =
     --             (MSG False False [SEG "seg1" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 1" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (finalizeMsg $ fillMsg
+               (fmap fst $ finalizeMsg $ fillMsg
                 M.empty
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "One item message -- value already set 2" $
       assertEq (Right [[[DEStr "HNHBK"],[DEStr "000000000019"]]])
-               (finalizeMsg $ fillMsg
+               (fmap fst $ finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "SomethingOrOther")])])
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEval (DEStr "HNHBK"))
                                                                  ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
@@ -499,7 +500,7 @@ fillMsgTests =
                 (MSG False False [SEG "MsgHead" False 0 Nothing [DEItem (DEdef "de1" AN 5 Nothing 1 (Just 1) (Just ["1","2"]))]]))
     , testCase "Message with one DEG with two DEs" $
       assertEq (Right [[[DEStr "99", DEStr "77"],[DEStr "000000000019"]]])
-               (finalizeMsg $ fillMsg
+               (fmap fst $ finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("deg1", DEGentry $ M.fromList [("de1", DEStr "99")
                                                                                     ,("de2", DEStr "77")])])])
                 (MSG False False
@@ -509,7 +510,7 @@ fillMsgTests =
                    ,DEItem (DEdef "msgsize" Dig 12 (Just 12) 1 (Just 1) Nothing)]]))
     , testCase "Empty segs are removed from message (no '')" $
       assertEq (Right [[[DEStr "1"]],[[DEStr "2"]]])
-               (finalizeMsg $ fillMsg
+               (fmap fst $ finalizeMsg $ fillMsg
                 (M.fromList [("MsgHead", M.fromList [("de1", DEentry $ DEStr "1")])
                             ,("MsgTail", M.fromList [("de2", DEentry $ DEStr "2")])])
                 (MSG False False
@@ -583,7 +584,7 @@ fullMsgGenTests =
     ]
   ]
   where
-    testF msg vals = finalizeMsg (fillMsg vals msg) >>= return . gen
+    testF msg vals = finalizeMsg (fillMsg vals msg) >>= return . gen . fst
 
 parseBankPropsLineTests :: [TF.Test]
 parseBankPropsLineTests =
@@ -609,6 +610,9 @@ parseBankPropsLineTests =
     ]
   ]
 
+third :: (t, t1, t2) -> t2
+third (_,_,z) = z
+
 extractSegTests :: [TF.Test]
 extractSegTests =
   [ testGroup "Test extractSeg function"
@@ -619,7 +623,7 @@ extractSegTests =
       assertEq (Left "No definition for seg head HNHBK-3") $
       extractSeg msg0 [[DEStr "HNHBK", DEStr "1", DEStr "3"]]
     , testCase "Extract some entries from a single entry" $
-      assertEq (Right [("MsgHead.msgsize",DEStr "000000000123"),("MsgHead.SegHead.seq",DEStr "1")]) $
+      assertEq (Right ("MsgHead", Nothing, [("msgsize",DEStr "000000000123"),("SegHead.seq",DEStr "1")])) $
       extractSeg msg1 [[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]
     ]
   ]
@@ -639,8 +643,8 @@ extractMsgTests :: [TF.Test]
 extractMsgTests =
   [ testGroup "Test extractMsg function"
     [ testCase "Extract from generated 'DialogInitAnon'" $
-      let keys    = ["Idn.KIK.country", "Idn.KIK.blz", "ProcPrep.BPD", "ProcPrep.UPD", "ProcPrep.lang", "ProcPrep.prodName", "ProcPrep.prodVersion"]
-          vals    = map DEStr ["280",  "12030000", "3", "2", "1", "HsBCI", "0.1.0"]
+      let -- keys    = ["Idn.KIK.country", "Idn.KIK.blz", "ProcPrep.BPD", "ProcPrep.UPD", "ProcPrep.lang", "ProcPrep.prodName", "ProcPrep.prodVersion"]
+          -- vals    = map DEStr ["280",  "12030000", "3", "2", "1", "HsBCI", "0.1.0"]
           inputs  = M.fromList [("Idn", M.fromList [("KIK", DEGentry $ M.fromList [("country", DEStr "280"), ("blz", DEStr "12030000")])])
                                ,("ProcPrep", M.fromList [("BPD", DEentry $ DEStr "3")
                                                         ,("UPD", DEentry $ DEStr "2")
@@ -648,9 +652,23 @@ extractMsgTests =
                                                         ,("prodName", DEentry $ DEStr "HsBCI")
                                                         ,("prodVersion", DEentry $ DEStr "0.1.0")])]
           retVals = do msg <- finalizeMsg $ fillMsg inputs dialogInitAnon
-                       let (_errors, matched) = extractMsg dialogInitAnon msg
-                       return $ catMaybes [lookup k matched | k <- keys]
-      in assertEq (Right vals) retVals
+                       return $ extractMsg dialogInitAnon $ fst msg
+                       -- return $ fmap snd $ concat $ concat $ catMaybes [M.lookup k (msgDataBySegName matched) | k <- keys]
+      in assertEq
+         (Right ([],MsgData {msgDataBySegName = M.fromList [("Idn",[[("KIK.country",DEStr "280")
+                                                                    ,("KIK.blz",DEStr "12030000")
+                                                                    ,("SegHead.seq",DEStr "2")]])
+                                                           ,("MsgHead",[[("msgsize",DEStr "000000000109")
+                                                                        ,("SegHead.seq",DEStr "1")]])
+                                                           ,("MsgTail",[[("SegHead.seq",DEStr "4")]])
+                                                           ,("ProcPrep",[[("prodVersion",DEStr "0.1.0")
+                                                                         ,("prodName",DEStr "HsBCI")
+                                                                         ,("lang",DEStr "1")
+                                                                         ,("UPD",DEStr "2")
+                                                                         ,("BPD",DEStr "3")
+                                                                         ,("SegHead.seq",DEStr "3")]])]
+                            , msgDataBySegRef = IM.empty}))
+         retVals
     ]
   ]
 

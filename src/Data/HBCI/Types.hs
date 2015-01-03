@@ -236,4 +236,4 @@ data StatementEntry =
 
 data MsgData = MsgData { msgDataBySegName :: M.Map T.Text [[(T.Text, DEValue)]]
                        , msgDataBySegRef  :: IM.IntMap [(T.Text, [(T.Text, DEValue)])]
-                       }
+                       } deriving (Eq, Show)
