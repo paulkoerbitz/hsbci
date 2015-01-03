@@ -180,8 +180,8 @@ extractSeg :: ([SEG], M.Map T.Text SEG) -> SEGValue -> Either T.Text (T.Text, Ma
 extractSeg (tmplDefs, defs) segVal = do
   valHd <- getValHead segVal
   case M.lookup (fst valHd <> "-" <> snd valHd) defs of
-    Just segDef -> do { res <- f segDef; return (segName segDef, findRef res, res) } -- FIXME
-    Nothing -> foldr (\x acc -> f x >>= \res -> Right (segName x, findRef res, res) `alt` acc) -- FIXME
+    Just segDef -> do { res <- f segDef; return (segName segDef, findRef res, res) }
+    Nothing -> foldr (\x acc -> f x >>= \res -> Right (segName x, findRef res, res) `alt` acc)
                (Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd)
                $! tmplDefs
   where
