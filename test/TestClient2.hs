@@ -57,23 +57,24 @@ updateBPD stuff = do
   version <- deToTxt =<< lookup "version" bpa
   numgva <- deToInt =<< lookup "numgva" bpa
   maxsize <- deToInt =<< lookup "maxmsgsize" bpa
-  params <- M.foldrWithKey f Nothing (msgDataBySegName stuff)   -- foldr (\x acc -> return $! M.foldMapWithKey f (msgDataBySegName stuff)
+  params <- M.foldrWithKey f Nothing (msgDataBySegName stuff)
   return $! BPD version numgva maxsize params
   where
     pattern = "[a-zA-Z0-9]*Par[0-9]" :: String
 
     f :: T.Text -> [[(T.Text, DEValue)]] -> Maybe (M.Map T.Text [HbciJobParams]) -> Maybe (M.Map T.Text [HbciJobParams])
     f key vals acc | T.unpack key =~ pattern = do
-      vals' <- traverse mkParams vals
+      let keyLen = T.length key
+      version <- readInt (T.drop (keyLen - 1) key)
+      vals' <- traverse (mkParams version) vals
       acc' <- acc <|> Just M.empty
-      return $! M.insert key vals' acc'
+      return $! M.alter (Just . maybe vals' (vals'++)) (T.take (keyLen - 4) key) acc'
     f _   _    acc                  = acc
 
-    mkParams vals = do
-      version <- deToInt =<< lookup "" vals
-      minSigs <- deToInt =<< lookup "" vals
-      maxNum  <- deToInt =<< lookup "" vals
-      other   <- return $! filter (\x -> not $! any ((== x) . fst) []) vals
+    mkParams version vals = do
+      minSigs <- deToInt =<< lookup "minsigs" vals
+      maxNum  <- deToInt =<< lookup "maxnum" vals
+      other   <- return $! filter (\x -> not $! any ((== fst x)) ["minsigs", "maxnum", "SegHead.ref", "SegHead.seq"]) vals
       return $! HbciJobParams version minSigs maxNum other
 
 

@@ -33,8 +33,6 @@ import           Data.HBCI.Mt94x
 class Job x where
   type JobResult x :: *
 
-  xmlSegmentName :: x -> T.Text
-
   getParams :: x -> HbciReader MSGEntry
 
   getResult :: x -> [(T.Text, Int)] -> MsgData -> Hbci (JobResult x)
@@ -47,11 +45,11 @@ safeMaximum :: Ord a => [a] -> Maybe a
 safeMaximum []     = Nothing
 safeMaximum (x:xs) = (safeMaximum xs >>= return . max x) <|> Just x
 
-getVersionedJobName :: T.Text -> HbciReader T.Text
-getVersionedJobName name = do
+getMaxJobVersion :: T.Text -> HbciReader Int
+getMaxJobVersion name = do
   bpd <- hbciStateBPD <$> askState
   fromMaybe (HbciErrorInternal $! "Job " <> name <> ": Could not find version number in BPD") $!
-    bpd >>= return . bpdJobParams >>= M.lookup name >>= safeMaximum . map hbciJobParamsVersion >>= return . T.pack . show
+    safeMaximum . fmap hbciJobParamsVersion =<< M.lookup name . bpdJobParams =<< bpd
 
 findResultSegs :: Job x => x -> [(T.Text, Int)] -> MsgData -> HbciReader [(T.Text, [(T.Text, DEValue)])]
 findResultSegs = undefined
@@ -72,16 +70,14 @@ data GetBalanceResult =
 instance Job GetBalance where
   type JobResult GetBalance = GetBalanceResult
 
-  xmlSegmentName _ = "Saldo"
-
   getParams (GetBalance accNum) = do
-    jobName <- getVersionedJobName "Saldo"
+    jobName <- getMaxJobVersion "Saldo" >>= \x -> return $ "Saldo" <> T.pack (show x)
     blz <- hbciInfoBlz <$> askInfo
     return $! M.fromList [(jobName, M.fromList [("KTV", ktv2 accNum "" blz) ,("allaccounts", DEentry (DEStr "N"))])]
 
   getResult job@(GetBalance acntNum) requestSegNums vals' = do
     resultSegs <- liftReader $! findResultSegs job requestSegNums vals'
-    resultXmlName <- liftReader $! getVersionedJobName (xmlSegmentName job <> "Res")
+    resultXmlName <- liftReader $! getMaxJobVersion "Saldo" >>= \x -> return ("SaldoRes" <> T.pack (show x))
     processSegs resultXmlName resultSegs
     where
       processSegs expectedNm [(nm, vals)] | nm == expectedNm = do
@@ -101,7 +97,7 @@ instance Job GetBalance where
         bookedBal' <- fromMaybe (HbciErrorInternal "Saldo: Didn't find expected field 'booked.BTG.value'") bookedBal
         return $! GetBalanceResult bookedBal' unbookedBal overdraft available used bookingTime
 
-      processSegs _ _  = left $! HbciErrorInternal $! "Job " <> xmlSegmentName job <> ": Found unknown result segments while processing response"
+      processSegs _ _  = left $! HbciErrorInternal $! "Job Saldo: Found unknown result segments while processing response"
 
 
 {-
