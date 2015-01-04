@@ -10,6 +10,7 @@ import           Data.Monoid ((<>))
 import           Data.Char (ord)
 import           Data.Word (Word8)
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E (decodeLatin1)
 import qualified Data.ByteString as BS
@@ -51,8 +52,18 @@ getMaxJobVersion name = do
   fromMaybe (HbciErrorInternal $! "Job " <> name <> ": Could not find version number in BPD") $!
     safeMaximum . fmap hbciJobParamsVersion =<< M.lookup name . bpdJobParams =<< bpd
 
-findResultSegs :: Job x => x -> [(T.Text, Int)] -> MsgData -> HbciReader [(T.Text, [(T.Text, DEValue)])]
-findResultSegs = undefined
+getVersionedJobName :: T.Text -> HbciReader T.Text
+getVersionedJobName name = getMaxJobVersion name >>= \x -> return $ name <> T.pack (show x)
+
+getVersionedResponseName :: T.Text -> HbciReader T.Text
+getVersionedResponseName name = getMaxJobVersion name >>= \x -> return $ name <> "Res" <> T.pack (show x)
+
+findResultSegs :: T.Text -> [(T.Text, Int)] -> MsgData -> HbciReader [(T.Text, [(T.Text, DEValue)])]
+findResultSegs jobName segRefs (MsgData _ bySegRef) = do
+  versionedJobName <- getVersionedJobName jobName
+  fromMaybe (HbciErrorInternal $! "Can't find reference number for job " <> versionedJobName) $! do
+    requestSegNum <- lookup versionedJobName segRefs
+    IM.lookup requestSegNum bySegRef
 
 data GetBalance =
   GetBalance { gbAccountNumber :: T.Text
@@ -75,9 +86,9 @@ instance Job GetBalance where
     blz <- hbciInfoBlz <$> askInfo
     return $! M.fromList [(jobName, M.fromList [("KTV", ktv2 accNum "" blz) ,("allaccounts", DEentry (DEStr "N"))])]
 
-  getResult job@(GetBalance acntNum) requestSegNums vals' = do
-    resultSegs <- liftReader $! findResultSegs job requestSegNums vals'
-    resultXmlName <- liftReader $! getMaxJobVersion "Saldo" >>= \x -> return ("SaldoRes" <> T.pack (show x))
+  getResult (GetBalance acntNum) requestSegNums vals' = do
+    resultSegs <- liftReader $! findResultSegs "Saldo" requestSegNums vals'
+    resultXmlName <- liftReader $! getVersionedResponseName "Saldo"
     processSegs resultXmlName resultSegs
     where
       processSegs expectedNm [(nm, vals)] | nm == expectedNm = do
