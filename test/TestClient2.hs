@@ -197,13 +197,8 @@ decrypt msgVal = do
 
 -- FIXME: Need to uniquify the tan modes
 findTanModes :: BPD -> [TanMode]
-findTanModes (BPD _ _ _ params) = foldr f [] [0..9]
+findTanModes (BPD _ _ _ params) = maybe [] (catMaybes . fmap (mkTanMode . hbciJobParamsOther)) (M.lookup "TAN2Step" params)
   where
-    f :: Int -> [TanMode] -> [TanMode]
-    f i acc = maybe acc (++ acc) $! do
-      tanParams <- M.lookup ("TAN2StepPar" <> T.pack (show i)) params
-      mapM (mkTanMode . hbciJobParamsOther) tanParams
-
     mkTanMode l = MkTanMode <$> (deToTxt =<< lookup "ParTAN2Step.secfunc" l)
                             <*> (deToTxt =<< lookup "ParTAN2Step.name" l)
                             <*> (deToTxt =<< lookup "ParTAN2Step.id" l)
