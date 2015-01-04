@@ -25,3 +25,5 @@ likely break.
 - Handle different Tan modes correctly
 
 - Check messages for message size and max num GV before sending
+
+- Correctly extract allowed tan modes from responses
