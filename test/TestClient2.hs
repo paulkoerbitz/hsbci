@@ -12,8 +12,8 @@ import           Control.Monad.State        (get, put, modify)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString       as BS
 
-import           Data.Monoid ((<>), mempty)
-import           Data.Maybe (catMaybes, listToMaybe)
+import           Data.Monoid ((<>))
+import           Data.Maybe (catMaybes)
 import           Data.Traversable (traverse)
 
 import qualified Data.Text as T
@@ -24,7 +24,6 @@ import           System.Exit (exitFailure)
 
 import qualified Data.Map as M
 
-import           Data.Time.Calendar (fromGregorian)
 import           Data.Time.Format (FormatTime (..), formatTime)
 import           Data.Time.LocalTime (getZonedTime, ZonedTime(..))
 import           System.Locale (defaultTimeLocale)
@@ -294,9 +293,6 @@ sendSync  = do
   response <- sendMsg =<< (liftReader $! fst <$> createMsg time "Synch" msgVals)
   _ <- liftHbci $! processResponse "Synch" response
 
-  bpd' <- hbciStateBPD <$> get
-  liftIO $! putStrLn $! show bpd'
-
   return ()
 
 
@@ -378,7 +374,7 @@ main = do
   let hbciInfo  = HbciInfo props msgDefs uid pin blz
 
   -- hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetStatementList "17863762" "" (fromGregorian 2014 12 1) (fromGregorian 2014 12 24) 0)
-  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetBalance "17863762")
+  hbciRes <- evalHbciIO hbciInfo initialHbciState $ sendHbciJobs (GetBalance accnum)
 
   case hbciRes of
     Left e    -> putStrLn ("ERROR: " ++ show e) >> exitFailure
