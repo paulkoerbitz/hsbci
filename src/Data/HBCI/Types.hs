@@ -5,6 +5,7 @@ module Data.HBCI.Types where
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
+import qualified Data.Vector as V
 import qualified Data.IntMap as IM
 import           Text.PrettyPrint
 
@@ -141,7 +142,7 @@ data HbciUserInfo = HbciUserInfo { uiUserId :: T.Text
                                  }
 
 data HbciInfo = HbciInfo { hbciInfoBankProperties :: M.Map T.Text BankProperties
-                         , hbciInfoMessages       :: M.Map T.Text MSG
+                         , hbciInfoMessages       :: V.Vector (T.Text, M.Map T.Text MSG)
                          , hbciInfoUserId         :: T.Text
                          , hbciInfoPin            :: T.Text
                          , hbciInfoBlz            :: T.Text

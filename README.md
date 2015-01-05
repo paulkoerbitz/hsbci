@@ -13,12 +13,12 @@ likely break.
 
 ## ToDos
 
+- ~~Work with multiple HBCI versions (currently only HBCI Plus)~~
+
 - Implement missing HBCI Jobs:
   - Transfer
   - TanMediaList
   - ...
-
-- Work with multiple HBCI versions (currently only HBCI Plus)
 
 - Handle errors correctly
 

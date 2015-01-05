@@ -23,6 +23,7 @@ import           Text.Regex.Posix ((=~))
 import           System.Exit (exitFailure)
 
 import qualified Data.Map as M
+import qualified Data.Vector as V
 
 import           Data.Time.Format (FormatTime (..), formatTime)
 import           Data.Time.LocalTime (getZonedTime, ZonedTime(..))
@@ -123,8 +124,11 @@ sign localTime msg = do -- sysid tanModes (MkHbciUserInfo userID pin blz) msg =
 -- FIXME: Make at least blz typesafe
 askMsgDef :: T.Text -> HbciReader MSG
 askMsgDef msgName = do
-  HbciInfo _ hbciDef _ _ _ <- askInfo
-  fromMaybe (HbciErrorInternal $ "Can't find definition of " <> msgName) $ M.lookup msgName hbciDef
+  HbciInfo props hbciDef _ _ blz <- askInfo
+  fromMaybe (HbciErrorInternal $ "Can't find definition of " <> msgName) $! do
+    version <- bankPinTanVersion <$> M.lookup blz props
+    versionDef <- V.foldl (\acc x -> if fst x == version then Just (snd x) else acc) Nothing hbciDef
+    M.lookup msgName versionDef
 
 crypt :: FormatTime t => t -> MSG -> MSGEntry -> HbciReader (MSGValue, [(T.Text, Int)])
 crypt localTime (MSG reqSig reqEnc items) entries = do
@@ -350,13 +354,14 @@ sendJobsInternal jobs = do
   liftHbci $! getResult jobs segNums response'
 
 
-getHbciConfig :: IO (Either String (M.Map T.Text BankProperties, M.Map T.Text MSG))
+getHbciConfig :: IO (Either String (M.Map T.Text BankProperties, V.Vector (T.Text, M.Map T.Text MSG)))
 getHbciConfig = do
+  let versions = V.fromList ["plus", "300"]
   bankProps <- getBankPropsFromFile "resources/blz.properties"
-  -- FIXME: Read in all supported hbci versions
-  msgs      <- getMSGfromXML <$> getXml ("resources/hbci-plus.xml")
+  defs <- traverse (\version -> getXml ("resources/hbci-" ++ T.unpack version ++ ".xml")) versions
+  let msgs = traverse getMSGfromXML defs
   case (bankProps, msgs) of
-    (Right bankProps', Right msgs') -> return $ Right $ (bankProps', msgs')
+    (Right bankProps', Right msgs') -> return $ Right $ (bankProps',  V.zip versions msgs')
     _                               -> return $ Left "HsBCI: Error getting config"
 
 -- Example 1 - simple command line client
