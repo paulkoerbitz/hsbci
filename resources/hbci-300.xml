@@ -91,6 +91,11 @@
       <value path="parname">1</value>
     </DEGdef>
 
+    <DEGdef id="KIK">
+      <DE name="country" type="Ctr" />
+      <DE maxsize="30" minnum="0" name="blz" type="AN" />
+    </DEGdef>
+
     <DEGdef id="KeyName">
       <DEG type="KIK" />
       <DE name="userid" type="ID" />
@@ -103,11 +108,6 @@
         <validvalue>S</validvalue>
         <validvalue>V</validvalue>
       </valids>
-    </DEGdef>
-
-    <DEGdef id="KIK">
-      <DE name="country" type="Ctr" />
-      <DE maxsize="30" minnum="0" name="blz" type="AN" />
     </DEGdef>
 
     <DEGdef id="KLimit">
@@ -732,6 +732,11 @@
       <DE name="canmaxentries" type="JN" />
     </DEGdef>
 
+    <DEGdef id="PinTanGV">
+      <DE maxsize="6" name="segcode" type="AN" />
+      <DE name="needtan" type="JN" />
+    </DEGdef>
+
     <DEGdef id="ParPinTan">
       <DEG maxnum="999" minnum="0" type="PinTanGV" />
     </DEGdef>
@@ -823,6 +828,154 @@
       <DE maxsize="7" name="maxnum" type="Num" />
       <DE name="needtotal" type="JN" />
       <DE name="cansingletransfer" type="JN" />
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams1">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE name="cantandelay" type="JN" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams2">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams3">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams4">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+	    <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
+	    <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="3" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+	    <DE name="needsmsaccount" type="JN" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="needchallengevalue" type="JN" />
+	    <DE name="ischallengestructured" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+    </DEGdef>
+
+    <DEGdef id="TAN2StepParams5">
+      <DE maxsize="3" name="secfunc" type="Code" />
+      <DE maxsize="1" name="process" type="Code" />
+      <DE name="id" type="ID" />
+      <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
+      <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
+      <DE maxsize="30" name="name" type="AN" />
+      <DE maxsize="2" name="maxlentan2step" type="Num" />
+      <DE maxsize="1" name="tanformat" type="Code" />
+      <DE maxsize="30" name="inputinfo" type="AN" />
+      <DE maxsize="4" name="maxleninput2step" type="Num" />
+      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
+      <DE name="canmultitan" type="JN" />
+      <DE maxsize="1" name="cantandelay" type="Code" />
+      <DE maxsize="1" name="needtanlistidx" type="Code" />
+      <DE name="canstorno" type="JN" />
+      <DE maxsize="1" name="needsmsaccount" type="Code" />
+      <DE maxsize="1" name="needorderaccount" type="Code" />
+      <DE name="needchallengeklass" type="JN" />
+      <DE name="ischallengestructured" type="JN" />
+      <DE name="initmode" type="Code" />
+      <DE name="needtanmedia" type="Code" />
+      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
+
+      <valids path="process">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
+      <valids path="tanformat">
+        <validvalue>1</validvalue>
+        <validvalue>2</validvalue>
+      </valids>
     </DEGdef>
 
     <DEGdef id="ParTAN2Step1">
@@ -1025,11 +1178,6 @@
       <DE maxnum="99" maxsize="38" name="risikodescr" type="AN" />
     </DEGdef>
 
-    <DEGdef id="PinTanGV">
-      <DE maxsize="6" name="segcode" type="AN" />
-      <DE name="needtan" type="JN" />
-    </DEGdef>
-
     <DEGdef id="Prolong">
       <DE maxsize="3" name="laufzeit" type="Num" />
       <DEG type="BTG" />
@@ -1063,154 +1211,6 @@
       <valids path="CreditDebit">
         <validvalue>C</validvalue>
         <validvalue>D</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams1">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE name="cantandelay" type="JN" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams2">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams3">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams4">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-	    <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
-	    <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="3" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-	    <DE name="needsmsaccount" type="JN" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="needchallengevalue" type="JN" />
-	    <DE name="ischallengestructured" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-    </DEGdef>
-
-    <DEGdef id="TAN2StepParams5">
-      <DE maxsize="3" name="secfunc" type="Code" />
-      <DE maxsize="1" name="process" type="Code" />
-      <DE name="id" type="ID" />
-      <DE maxsize="32" minnum="0" name="zkamethod_name" type="AN" />
-      <DE maxsize="10" minnum="0" name="zkamethod_version" type="AN" />
-      <DE maxsize="30" name="name" type="AN" />
-      <DE maxsize="2" name="maxlentan2step" type="Num" />
-      <DE maxsize="1" name="tanformat" type="Code" />
-      <DE maxsize="30" name="inputinfo" type="AN" />
-      <DE maxsize="4" name="maxleninput2step" type="Num" />
-      <DE maxsize="1" minnum="0" name="noftanlists" type="Num" />
-      <DE name="canmultitan" type="JN" />
-      <DE maxsize="1" name="cantandelay" type="Code" />
-      <DE maxsize="1" name="needtanlistidx" type="Code" />
-      <DE name="canstorno" type="JN" />
-      <DE maxsize="1" name="needsmsaccount" type="Code" />
-      <DE maxsize="1" name="needorderaccount" type="Code" />
-      <DE name="needchallengeklass" type="JN" />
-      <DE name="ischallengestructured" type="JN" />
-      <DE name="initmode" type="Code" />
-      <DE name="needtanmedia" type="Code" />
-      <DE maxsize="1" minnum="0" name="nofactivetanmedia" type="Num" />
-
-      <valids path="process">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
-      </valids>
-      <valids path="tanformat">
-        <validvalue>1</validvalue>
-        <validvalue>2</validvalue>
       </valids>
     </DEGdef>
 
@@ -8150,6 +8150,175 @@
   </SEGs>
 
   <SFs>
+    <SFdef id="Params">
+      <SEG minnum="0" type="AccInfoPar1" />
+      <SEG minnum="0" type="AccInfoPar2" />
+      <SEG minnum="0" type="CardListPar1" />
+      <SEG minnum="0" type="CardListPar2" />
+    	<SEG minnum="0" type="ChangePINPar1" />
+	    <SEG minnum="0" type="ChangePINOldPar1" />
+      <SEG minnum="0" type="CommListPar2" />
+      <SEG minnum="0" type="CommListPar3" />
+      <SEG minnum="0" type="CommListPar4" />
+      <SEG minnum="0" type="CustomMsgPar2" />
+      <SEG minnum="0" type="CustomMsgPar3" />
+      <SEG minnum="0" type="CustomMsgPar4" />
+      <SEG minnum="0" type="CustomMsgPar5" />
+      <SEG minnum="0" type="DauerDelPar1" />
+      <SEG minnum="0" type="DauerDelPar2" />
+      <SEG minnum="0" type="DauerDelPar3" />
+      <SEG minnum="0" type="DauerDelPar4" />
+      <SEG minnum="0" type="DauerSEPADelPar1" />
+      <SEG minnum="0" type="DauerEditPar2" />
+      <SEG minnum="0" type="DauerEditPar3" />
+      <SEG minnum="0" type="DauerEditPar4" />
+      <SEG minnum="0" type="DauerEditPar5" />
+      <SEG minnum="0" type="DauerSEPAEditPar1" />
+      <SEG minnum="0" type="DauerListPar1" />
+      <SEG minnum="0" type="DauerListPar2" />
+      <SEG minnum="0" type="DauerListPar3" />
+      <SEG minnum="0" type="DauerListPar4" />
+      <SEG minnum="0" type="DauerListPar5" />
+      <SEG minnum="0" type="DauerSEPAListPar1" />
+      <SEG minnum="0" type="DauerNewPar2" />
+      <SEG minnum="0" type="DauerNewPar3" />
+      <SEG minnum="0" type="DauerNewPar4" />
+      <SEG minnum="0" type="DauerNewPar5" />
+      <SEG minnum="0" type="DauerSEPANewPar1" />
+      <SEG minnum="0" type="FestCondListPar1" />
+      <SEG minnum="0" type="FestCondListPar2" />
+      <SEG minnum="0" type="FestCondListPar3" />
+      <SEG minnum="0" type="FestListPar2" />
+      <SEG minnum="0" type="FestListPar3" />
+      <SEG minnum="0" type="FestListPar4" />
+      <SEG minnum="0" type="FestNewPar2" />
+      <SEG minnum="0" type="FestNewPar3" />
+      <SEG minnum="0" type="FestNewPar4" />
+      <SEG minnum="0" type="InfoDetailsPar1" />
+      <SEG minnum="0" type="InfoDetailsPar2" />
+      <SEG minnum="0" type="InfoDetailsPar3" />
+      <SEG minnum="0" type="InfoDetailsPar4" />
+      <SEG minnum="0" type="InfoListPar1" />
+      <SEG minnum="0" type="InfoListPar2" />
+      <SEG minnum="0" type="InfoListPar3" />
+      <SEG minnum="0" type="InfoListPar4" />
+      <SEG minnum="0" type="KontoauszugPar1" />
+      <SEG minnum="0" type="KontoauszugPar2" />
+      <SEG minnum="0" type="KontoauszugPar3" />
+      <SEG minnum="0" type="KontoauszugSEPAPar4" />
+      <SEG minnum="0" type="KUmsNewPar4" />
+      <SEG minnum="0" type="KUmsNewPar5" />
+      <SEG minnum="0" type="KUmsNewPar6" />
+      <SEG minnum="0" type="KUmsNewSEPAPar7" />
+      <SEG minnum="0" type="KUmsZeitPar4" />
+      <SEG minnum="0" type="KUmsZeitPar5" />
+      <SEG minnum="0" type="KUmsZeitPar6" />
+      <SEG minnum="0" type="KUmsZeitSEPAPar7" />
+      <SEG minnum="0" type="LastPar2" />
+      <SEG minnum="0" type="LastPar3" />
+      <SEG minnum="0" type="LastPar4" />
+      <SEG minnum="0" type="LastPar5" />
+      <SEG minnum="0" type="LastSEPAPar1" />
+      <SEG minnum="0" type="LastCOR1SEPAPar1" />
+      <SEG minnum="0" type="LastB2BSEPAPar1" />
+      <SEG minnum="0" type="LastObjectionPar1" />
+      <SEG minnum="0" type="LastObjectionPar2" />
+      <SEG minnum="0" type="OrderHistoryPar1" />
+      <SEG minnum="0" type="PinTanPar1" />
+      <SEG minnum="0" type="PinTanPar2" />
+      <SEG minnum="0" type="SaldoPar3" />
+      <SEG minnum="0" type="SaldoPar4" />
+      <SEG minnum="0" type="SaldoPar5" />
+      <SEG minnum="0" type="SaldoPar6" />
+      <SEG minnum="0" type="SaldoSEPAPar7" />
+      <SEG minnum="0" type="SammelLastPar3" />
+      <SEG minnum="0" type="SammelLastPar4" />
+      <SEG minnum="0" type="SammelLastPar5" />
+      <SEG minnum="0" type="SammelLastPar6" />
+      <SEG minnum="0" type="SammelUebPar3" />
+      <SEG minnum="0" type="SammelUebPar4" />
+      <SEG minnum="0" type="SammelUebPar5" />
+      <SEG minnum="0" type="SammelUebPar6" />
+      <SEG minnum="0" type="SammelUebEilPar1" />
+      <SEG minnum="0" type="SammelUebSEPAPar1" />
+      <SEG minnum="0" type="SammelLastSEPAPar1" />
+      <SEG minnum="0" type="SammelLastCOR1SEPAPar1" />
+      <SEG minnum="0" type="SammelLastB2BSEPAPar1" />
+      <SEG minnum="0" type="SEPAInfoPar1" />
+      <SEG minnum="0" type="StatusPar2" />
+      <SEG minnum="0" type="StatusPar3" />
+      <SEG minnum="0" type="StatusPar4" />
+      <SEG minnum="0" type="TAN2StepPar1" />
+      <SEG minnum="0" type="TAN2StepPar2" />
+      <SEG minnum="0" type="TAN2StepPar3" />
+      <SEG minnum="0" type="TAN2StepPar4" />
+      <SEG minnum="0" type="TAN2StepPar5" />
+      <SEG minnum="0" type="TANListListPar1" />
+      <SEG minnum="0" type="TANMediaListPar1" />
+      <SEG minnum="0" type="TANMediaListPar2" />
+      <SEG minnum="0" type="TANMediaListPar3" />
+      <SEG minnum="0" type="TANMediaListPar4" />
+      <SEG minnum="0" type="TermSammelLastPar3" />
+      <SEG minnum="0" type="TermSammelLastDelPar3" />
+      <SEG minnum="0" type="TermSammelLastListPar3" />
+      <SEG minnum="0" type="TermSammelUebPar3" />
+      <SEG minnum="0" type="TermSammelUebDelPar3" />
+      <SEG minnum="0" type="TermSammelUebListPar3" />
+      <SEG minnum="0" type="TermUebPar2" />
+      <SEG minnum="0" type="TermUebPar3" />
+      <SEG minnum="0" type="TermUebPar4" />
+      <SEG minnum="0" type="TermUebSEPAPar1" />
+      <SEG minnum="0" type="TermUebDelPar1" />
+      <SEG minnum="0" type="TermUebDelPar2" />
+      <SEG minnum="0" type="TermUebDelPar3" />
+      <SEG minnum="0" type="TermUebEditPar2" />
+      <SEG minnum="0" type="TermUebEditPar3" />
+      <SEG minnum="0" type="TermUebEditPar4" />
+      <SEG minnum="0" type="TermUebListPar1" />
+      <SEG minnum="0" type="TermUebListPar2" />
+      <SEG minnum="0" type="TermUebListPar3" />
+      <SEG minnum="0" type="TermUebSEPAListPar1" />
+      <SEG minnum="0" type="TermUebSEPADelPar1" />
+      <SEG minnum="0" type="UebPar2" />
+      <SEG minnum="0" type="UebPar3" />
+      <SEG minnum="0" type="UebPar4" />
+      <SEG minnum="0" type="UebPar5" />
+      <SEG minnum="0" type="UebEilPar1" />
+      <SEG minnum="0" type="UebForeignPar1" />
+      <SEG minnum="0" type="UebForeignPar2" />
+      <SEG minnum="0" type="UebGarPar1" />
+      <SEG minnum="0" type="UebSEPAPar1" />
+      <SEG minnum="0" type="UmbPar1" />
+      <SEG minnum="0" type="UmbPar2" />
+      <SEG minnum="0" type="VormerkpostenPar1" />
+      <SEG minnum="0" type="WPDepotListPar2" />
+      <SEG minnum="0" type="WPDepotListPar3" />
+      <SEG minnum="0" type="WPDepotListPar4" />
+      <SEG minnum="0" type="WPDepotListPar5" />
+      <SEG minnum="0" type="WPDepotListPar6" />
+      <SEG minnum="0" type="WPDepotUmsPar1" />
+      <SEG minnum="0" type="WPDepotUmsPar2" />
+      <SEG minnum="0" type="WPDepotUmsPar3" />
+      <SEG minnum="0" type="WPDepotUmsPar4" />
+      <SEG minnum="0" type="WPDepotUmsPar5" />
+      <SEG minnum="0" type="WPInfoListPar1" />
+      <SEG minnum="0" type="WPInfoListPar2" />
+      <SEG minnum="0" type="WPInfoListPar3" />
+      <SEG minnum="0" type="WPKursListPar1" />
+      <SEG minnum="0" type="WPKursListPar2" />
+      <SEG minnum="0" type="WPKursListPar3" />
+      <SEG minnum="0" type="WPRefListPar1" />
+      <SEG minnum="0" type="WPRefListPar2" />
+      <SEG minnum="0" type="WPRefListPar3" />
+      <SEG minnum="0" type="WPStammListPar1" />
+      <SEG minnum="0" type="WPStammListPar2" />
+      <SEG minnum="0" type="WPStammListPar3" />
+      <SEG minnum="0" type="Template2DPar" />
+      <SEG minnum="0" type="TemplateDPar" />
+      <SEG minnum="0" type="Template2Par" />
+      <SEG minnum="0" type="TemplatePar" />
+    </SFdef>
+
     <SFdef id="BPD">
       <SEG name="BPA" type="BPA3" />
       <SEG minnum="0" name="CommListRes" type="CommListRes2" />
@@ -8451,175 +8620,6 @@
       <SEG minnum="0" type="WPStammListRes1" />
       <SEG minnum="0" type="WPStammListRes2" />
       <SEG minnum="0" type="WPStammListRes3" />
-    </SFdef>
-
-    <SFdef id="Params">
-      <SEG minnum="0" type="AccInfoPar1" />
-      <SEG minnum="0" type="AccInfoPar2" />
-      <SEG minnum="0" type="CardListPar1" />
-      <SEG minnum="0" type="CardListPar2" />
-    	<SEG minnum="0" type="ChangePINPar1" />
-	    <SEG minnum="0" type="ChangePINOldPar1" />
-      <SEG minnum="0" type="CommListPar2" />
-      <SEG minnum="0" type="CommListPar3" />
-      <SEG minnum="0" type="CommListPar4" />
-      <SEG minnum="0" type="CustomMsgPar2" />
-      <SEG minnum="0" type="CustomMsgPar3" />
-      <SEG minnum="0" type="CustomMsgPar4" />
-      <SEG minnum="0" type="CustomMsgPar5" />
-      <SEG minnum="0" type="DauerDelPar1" />
-      <SEG minnum="0" type="DauerDelPar2" />
-      <SEG minnum="0" type="DauerDelPar3" />
-      <SEG minnum="0" type="DauerDelPar4" />
-      <SEG minnum="0" type="DauerSEPADelPar1" />
-      <SEG minnum="0" type="DauerEditPar2" />
-      <SEG minnum="0" type="DauerEditPar3" />
-      <SEG minnum="0" type="DauerEditPar4" />
-      <SEG minnum="0" type="DauerEditPar5" />
-      <SEG minnum="0" type="DauerSEPAEditPar1" />
-      <SEG minnum="0" type="DauerListPar1" />
-      <SEG minnum="0" type="DauerListPar2" />
-      <SEG minnum="0" type="DauerListPar3" />
-      <SEG minnum="0" type="DauerListPar4" />
-      <SEG minnum="0" type="DauerListPar5" />
-      <SEG minnum="0" type="DauerSEPAListPar1" />
-      <SEG minnum="0" type="DauerNewPar2" />
-      <SEG minnum="0" type="DauerNewPar3" />
-      <SEG minnum="0" type="DauerNewPar4" />
-      <SEG minnum="0" type="DauerNewPar5" />
-      <SEG minnum="0" type="DauerSEPANewPar1" />
-      <SEG minnum="0" type="FestCondListPar1" />
-      <SEG minnum="0" type="FestCondListPar2" />
-      <SEG minnum="0" type="FestCondListPar3" />
-      <SEG minnum="0" type="FestListPar2" />
-      <SEG minnum="0" type="FestListPar3" />
-      <SEG minnum="0" type="FestListPar4" />
-      <SEG minnum="0" type="FestNewPar2" />
-      <SEG minnum="0" type="FestNewPar3" />
-      <SEG minnum="0" type="FestNewPar4" />
-      <SEG minnum="0" type="InfoDetailsPar1" />
-      <SEG minnum="0" type="InfoDetailsPar2" />
-      <SEG minnum="0" type="InfoDetailsPar3" />
-      <SEG minnum="0" type="InfoDetailsPar4" />
-      <SEG minnum="0" type="InfoListPar1" />
-      <SEG minnum="0" type="InfoListPar2" />
-      <SEG minnum="0" type="InfoListPar3" />
-      <SEG minnum="0" type="InfoListPar4" />
-      <SEG minnum="0" type="KontoauszugPar1" />
-      <SEG minnum="0" type="KontoauszugPar2" />
-      <SEG minnum="0" type="KontoauszugPar3" />
-      <SEG minnum="0" type="KontoauszugSEPAPar4" />
-      <SEG minnum="0" type="KUmsNewPar4" />
-      <SEG minnum="0" type="KUmsNewPar5" />
-      <SEG minnum="0" type="KUmsNewPar6" />
-      <SEG minnum="0" type="KUmsNewSEPAPar7" />
-      <SEG minnum="0" type="KUmsZeitPar4" />
-      <SEG minnum="0" type="KUmsZeitPar5" />
-      <SEG minnum="0" type="KUmsZeitPar6" />
-      <SEG minnum="0" type="KUmsZeitSEPAPar7" />
-      <SEG minnum="0" type="LastPar2" />
-      <SEG minnum="0" type="LastPar3" />
-      <SEG minnum="0" type="LastPar4" />
-      <SEG minnum="0" type="LastPar5" />
-      <SEG minnum="0" type="LastSEPAPar1" />
-      <SEG minnum="0" type="LastCOR1SEPAPar1" />
-      <SEG minnum="0" type="LastB2BSEPAPar1" />
-      <SEG minnum="0" type="LastObjectionPar1" />
-      <SEG minnum="0" type="LastObjectionPar2" />
-      <SEG minnum="0" type="OrderHistoryPar1" />
-      <SEG minnum="0" type="PinTanPar1" />
-      <SEG minnum="0" type="PinTanPar2" />
-      <SEG minnum="0" type="SaldoPar3" />
-      <SEG minnum="0" type="SaldoPar4" />
-      <SEG minnum="0" type="SaldoPar5" />
-      <SEG minnum="0" type="SaldoPar6" />
-      <SEG minnum="0" type="SaldoSEPAPar7" />
-      <SEG minnum="0" type="SammelLastPar3" />
-      <SEG minnum="0" type="SammelLastPar4" />
-      <SEG minnum="0" type="SammelLastPar5" />
-      <SEG minnum="0" type="SammelLastPar6" />
-      <SEG minnum="0" type="SammelUebPar3" />
-      <SEG minnum="0" type="SammelUebPar4" />
-      <SEG minnum="0" type="SammelUebPar5" />
-      <SEG minnum="0" type="SammelUebPar6" />
-      <SEG minnum="0" type="SammelUebEilPar1" />
-      <SEG minnum="0" type="SammelUebSEPAPar1" />
-      <SEG minnum="0" type="SammelLastSEPAPar1" />
-      <SEG minnum="0" type="SammelLastCOR1SEPAPar1" />
-      <SEG minnum="0" type="SammelLastB2BSEPAPar1" />
-      <SEG minnum="0" type="SEPAInfoPar1" />
-      <SEG minnum="0" type="StatusPar2" />
-      <SEG minnum="0" type="StatusPar3" />
-      <SEG minnum="0" type="StatusPar4" />
-      <SEG minnum="0" type="TAN2StepPar1" />
-      <SEG minnum="0" type="TAN2StepPar2" />
-      <SEG minnum="0" type="TAN2StepPar3" />
-      <SEG minnum="0" type="TAN2StepPar4" />
-      <SEG minnum="0" type="TAN2StepPar5" />
-      <SEG minnum="0" type="TANListListPar1" />
-      <SEG minnum="0" type="TANMediaListPar1" />
-      <SEG minnum="0" type="TANMediaListPar2" />
-      <SEG minnum="0" type="TANMediaListPar3" />
-      <SEG minnum="0" type="TANMediaListPar4" />
-      <SEG minnum="0" type="TermSammelLastPar3" />
-      <SEG minnum="0" type="TermSammelLastDelPar3" />
-      <SEG minnum="0" type="TermSammelLastListPar3" />
-      <SEG minnum="0" type="TermSammelUebPar3" />
-      <SEG minnum="0" type="TermSammelUebDelPar3" />
-      <SEG minnum="0" type="TermSammelUebListPar3" />
-      <SEG minnum="0" type="TermUebPar2" />
-      <SEG minnum="0" type="TermUebPar3" />
-      <SEG minnum="0" type="TermUebPar4" />
-      <SEG minnum="0" type="TermUebSEPAPar1" />
-      <SEG minnum="0" type="TermUebDelPar1" />
-      <SEG minnum="0" type="TermUebDelPar2" />
-      <SEG minnum="0" type="TermUebDelPar3" />
-      <SEG minnum="0" type="TermUebEditPar2" />
-      <SEG minnum="0" type="TermUebEditPar3" />
-      <SEG minnum="0" type="TermUebEditPar4" />
-      <SEG minnum="0" type="TermUebListPar1" />
-      <SEG minnum="0" type="TermUebListPar2" />
-      <SEG minnum="0" type="TermUebListPar3" />
-      <SEG minnum="0" type="TermUebSEPAListPar1" />
-      <SEG minnum="0" type="TermUebSEPADelPar1" />
-      <SEG minnum="0" type="UebPar2" />
-      <SEG minnum="0" type="UebPar3" />
-      <SEG minnum="0" type="UebPar4" />
-      <SEG minnum="0" type="UebPar5" />
-      <SEG minnum="0" type="UebEilPar1" />
-      <SEG minnum="0" type="UebForeignPar1" />
-      <SEG minnum="0" type="UebForeignPar2" />
-      <SEG minnum="0" type="UebGarPar1" />
-      <SEG minnum="0" type="UebSEPAPar1" />
-      <SEG minnum="0" type="UmbPar1" />
-      <SEG minnum="0" type="UmbPar2" />
-      <SEG minnum="0" type="VormerkpostenPar1" />
-      <SEG minnum="0" type="WPDepotListPar2" />
-      <SEG minnum="0" type="WPDepotListPar3" />
-      <SEG minnum="0" type="WPDepotListPar4" />
-      <SEG minnum="0" type="WPDepotListPar5" />
-      <SEG minnum="0" type="WPDepotListPar6" />
-      <SEG minnum="0" type="WPDepotUmsPar1" />
-      <SEG minnum="0" type="WPDepotUmsPar2" />
-      <SEG minnum="0" type="WPDepotUmsPar3" />
-      <SEG minnum="0" type="WPDepotUmsPar4" />
-      <SEG minnum="0" type="WPDepotUmsPar5" />
-      <SEG minnum="0" type="WPInfoListPar1" />
-      <SEG minnum="0" type="WPInfoListPar2" />
-      <SEG minnum="0" type="WPInfoListPar3" />
-      <SEG minnum="0" type="WPKursListPar1" />
-      <SEG minnum="0" type="WPKursListPar2" />
-      <SEG minnum="0" type="WPKursListPar3" />
-      <SEG minnum="0" type="WPRefListPar1" />
-      <SEG minnum="0" type="WPRefListPar2" />
-      <SEG minnum="0" type="WPRefListPar3" />
-      <SEG minnum="0" type="WPStammListPar1" />
-      <SEG minnum="0" type="WPStammListPar2" />
-      <SEG minnum="0" type="WPStammListPar3" />
-      <SEG minnum="0" type="Template2DPar" />
-      <SEG minnum="0" type="TemplateDPar" />
-      <SEG minnum="0" type="Template2Par" />
-      <SEG minnum="0" type="TemplatePar" />
     </SFdef>
   </SFs>
 
