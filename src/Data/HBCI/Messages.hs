@@ -199,7 +199,7 @@ extractSeg (tmplDefs, defs) segVal = do
 
     dec x = x - 1
 
-    f segDef = foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem "" si sv) [] $ zip (segCycle $! segItems segDef) segVal
+    f segDef = fmap concat $ traverse (\(si,sv) -> validateAndExtractSegItem "" si sv) $ zip (segCycle $! segItems segDef) segVal
 
     g x acc = case f x of
       Right res -> return (segName x, findRef res, res)

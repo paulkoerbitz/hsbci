@@ -663,19 +663,19 @@ extractMsgTests =
                        return $ extractMsg dialogInitAnon $ fst msg
                        -- return $ fmap snd $ concat $ concat $ catMaybes [M.lookup k (msgDataBySegName matched) | k <- keys]
       in assertEq
-         (Right ([],MsgData {msgDataBySegName = M.fromList [("Idn",[[("KIK.country",DEStr "280")
-                                                                    ,("KIK.blz",DEStr "12030000")
-                                                                    ,("SegHead.seq",DEStr "2")]])
-                                                           ,("MsgHead",[[("msgsize",DEStr "000000000109")
-                                                                        ,("SegHead.seq",DEStr "1")]])
+         (Right ([],MsgData {msgDataBySegName = M.fromList [("Idn",[[("SegHead.seq",DEStr "2")
+                                                                    ,("KIK.country",DEStr "280")
+                                                                    ,("KIK.blz",DEStr "12030000")]])
+                                                           ,("MsgHead",[[("SegHead.seq",DEStr "1")
+                                                                        ,("msgsize",DEStr "000000000109")]])
                                                            ,("MsgTail",[[("SegHead.seq",DEStr "4")]])
-                                                           ,("ProcPrep",[[("prodVersion",DEStr "0.1.0")
-                                                                         ,("prodName",DEStr "HsBCI")
-                                                                         ,("lang",DEStr "1")
-                                                                         ,("UPD",DEStr "2")
+                                                           ,("ProcPrep",[[("SegHead.seq",DEStr "3")
                                                                          ,("BPD",DEStr "3")
-                                                                         ,("SegHead.seq",DEStr "3")]])]
-                            , msgDataBySegRef = IM.empty}))
+                                                                         ,("UPD",DEStr "2")
+                                                                         ,("lang",DEStr "1")
+                                                                         ,("prodName",DEStr "HsBCI")
+                                                                         ,("prodVersion",DEStr "0.1.0")]])]
+                            ,msgDataBySegRef = IM.fromList []}))
          retVals
     ]
   ]
