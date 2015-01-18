@@ -183,7 +183,23 @@ extractSeg (tmplDefs, defs) segVal = do
     Just segDef -> f segDef >>= \res -> return (segName segDef, findRef res, res)
     Nothing -> foldr g (Left $ "No definition for seg head " <> fst valHd <> "-" <> snd valHd) $! tmplDefs
   where
-    f segDef = foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem "" si sv) [] $ zip (segItems segDef) segVal
+    -- If the last item in the segDef is a DE or DEG with a maxnum > 1 or 0, we repeat the
+    -- last item as many times as necessary. This allows for 'variadic' DEs and DEGs which are
+    -- allowed by the standard.
+    segCycle [DEGItem deg]                     | p (degMaxNum deg) =
+      (DEGItem deg) : segCycle [DEGItem (deg { degMaxNum = dec <$> degMaxNum deg })]
+    segCycle [DEItem de@(DEdef _ _ _ _ _ _ _)] | p (deMaxNum de)   =
+      (DEItem de) : segCycle [DEItem (de { deMaxNum = dec <$> deMaxNum de })]
+    segCycle (x:xs)                                                = x : segCycle xs
+    segCycle []                                                    = []
+
+    p (Just x) | x > 1 = True
+    p Nothing          = True
+    p _                = False
+
+    dec x = x - 1
+
+    f segDef = foldM (\acc (si,sv) -> (++ acc) <$> validateAndExtractSegItem "" si sv) [] $ zip (segCycle $! segItems segDef) segVal
 
     g x acc = case f x of
       Right res -> return (segName x, findRef res, res)

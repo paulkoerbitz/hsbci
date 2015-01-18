@@ -623,8 +623,11 @@ extractSegTests =
       assertEq (Left "No definition for seg head HNHBK-3") $
       extractSeg msg0 [[DEStr "HNHBK", DEStr "1", DEStr "3"]]
     , testCase "Extract some entries from a single entry" $
-      assertEq (Right ("MsgHead", Nothing, [("msgsize",DEStr "000000000123"),("SegHead.seq",DEStr "1")])) $
+      assertEq (Right ("MsgHead", Nothing, [("SegHead.seq",DEStr "1"),("msgsize",DEStr "000000000123")])) $
       extractSeg msg1 [[DEStr "HNHBK", DEStr "1", DEStr "3"],[DEStr "000000000123"]]
+    , testCase "Extract multiple DEGs for a DEG with maxnum > 1" $
+      assertEq (Right ("RetSeg", Nothing, [("deg1",DEStr "1"),("deg1",DEStr "2"),("deg1",DEStr "3")])) $
+      extractSeg msg2 [[DEStr "HIRMS", DEStr "1", DEStr "1"],[DEStr "1"],[DEStr "2"],[DEStr "3"]]
     ]
   ]
   where
@@ -638,6 +641,11 @@ extractSegTests =
     msg0 = findSegDefs (MSG False False sf0)
 
     msg1 = findSegDefs (MSG False False [sf1])
+
+    msg2 = findSegDefs (MSG False False [SEG {segName="RetSeg", needsRequestTag = False, segMinNum = 0, segMaxNum = Just 1
+                                             ,segItems = [DEGItem (DEG "" 1 (Just 1)  [(DEval (DEStr "HIRMS")), (DEval (DEStr "1")), (DEval (DEStr "1"))])
+                                                         ,DEGItem (DEG "" 1 (Just 10) [DEdef "deg1" AN 0 Nothing 0 Nothing Nothing])
+                                                         ]}])
 
 extractMsgTests :: [TF.Test]
 extractMsgTests =
