@@ -4,6 +4,7 @@ module Data.HBCI.Utils where
 import           Control.Applicative ((<$>))
 import           Control.Monad.Trans.Either (EitherT, left, right, hoistEither)
 import qualified Data.Text as T
+import qualified Data.ByteString as BS
 import qualified Data.Text.Read as TR
 
 import           Data.HBCI.Types
@@ -25,6 +26,10 @@ onRight r (Right x)  = Right (r x)
 deToTxt :: DEValue -> Maybe T.Text
 deToTxt (DEStr x) = Just x
 deToTxt _         = Nothing
+
+deToBS :: DEValue -> Maybe BS.ByteString
+deToBS (DEBinary bs) = Just bs
+deToBS _             = Nothing
 
 readInt :: T.Text -> Maybe Int
 readInt x = case TR.decimal x of
