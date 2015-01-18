@@ -236,7 +236,6 @@ findMsgSegByRef k (MsgData _ m) = case IM.lookup k m of
   Just x  -> x
   Nothing -> []
 
-
 extractMsg :: MSG -> MSGValue -> ([T.Text], MsgData)
 extractMsg msgDef msgVal =
   second (foldr f (MsgData M.empty IM.empty)) $ partitionEithers $ map (extractSeg $ findSegDefs msgDef) msgVal
@@ -249,8 +248,6 @@ extractMsg msgDef msgVal =
     insOrAppend find ins k v m = case find k m of
       Just vs -> ins k (v:vs) m
       Nothing -> ins k [v] m
-
-
 
 nestedInsert :: [T.Text] -> DEValue -> MSGEntry -> Either T.Text MSGEntry
 nestedInsert keys@[segNm,degNm,deNm] v entries =
